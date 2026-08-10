@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TaleemLMS - Multi-Tenant Pakistani Educational Institute SaaS REST API",
+    "version": "1.0.0",
+    "description": "Production REST API for TaleemLMS supporting Multi-Tenancy, Granular RBAC, Academics, Students, Teachers, Attendance, LMS, Examinations & Grading, Timetable Conflict Engine, PKR Fee Management, and Communication Services."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Production API v1 Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "tenantHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Institute-Id"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "User Login (Email/Password or Phone/Password)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "emailOrPhone": { "type": "string", "example": "teacher@imcb.edu.pk" },
+                  "password": { "type": "string", "example": "Pass1234" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JWT tokens & Session data" },
+          "401": { "description": "Invalid credentials or locked account" }
+        }
+      }
+    },
+    "/attendance/bulk": {
+      "post": {
+        "summary": "Bulk Attendance Submission for 30-50 Students at once",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "class_id": { "type": "string" },
+                  "section_id": { "type": "string" },
+                  "date": { "type": "string", "example": "2026-08-10" },
+                  "records": { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Attendance saved & Absence notifications dispatched" }
+        }
+      }
+    },
+    "/timetable": {
+      "post": {
+        "summary": "Schedule Lecture Slot with Real-Time Conflict Detection",
+        "responses": {
+          "201": { "description": "Slot created" },
+          "409": { "description": "Teacher, Room or Class Double Booking Conflict" }
+        }
+      }
+    },
+    "/fees/invoices/:id/collect-payment": {
+      "post": {
+        "summary": "Record PKR Fee Payment (Cash, Bank Transfer, JazzCash, EasyPaisa)",
+        "responses": {
+          "200": { "description": "Payment recorded and receipt issued" }
+        }
+      }
+    }
+  }
+}
