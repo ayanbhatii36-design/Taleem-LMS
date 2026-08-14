@@ -31,6 +31,8 @@ interface HeaderProps {
   unreadCount: number;
   onOpenOnboarding: () => void;
   onOpenLogin: () => void;
+  onOpenSuperAdmin?: () => void;
+  isImpersonating?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -45,7 +47,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileSidebar,
   unreadCount,
   onOpenOnboarding,
-  onOpenLogin
+  onOpenLogin,
+  onOpenSuperAdmin,
+  isImpersonating
 }) => {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -234,6 +238,18 @@ export const Header: React.FC<HeaderProps> = ({
                     <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                     Setup & Onboarding Wizard
                   </button>
+                  {onOpenSuperAdmin && (
+                    <button
+                      onClick={() => {
+                        onOpenSuperAdmin();
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded-xl font-bold"
+                    >
+                      <Shield className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      Super Admin Platform Dashboard
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       onOpenLogin();

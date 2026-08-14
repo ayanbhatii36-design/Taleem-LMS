@@ -46,9 +46,22 @@ import { LandingPage } from './components/auth/LandingPage';
 import { LoginModal } from './components/auth/LoginModal';
 import { OnboardingModal } from './components/auth/OnboardingModal';
 
+// SaaS Super Admin Master Module
+import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
+import { ImpersonationBanner } from './components/superadmin/ImpersonationBanner';
+import { SchoolTenant } from './types/superAdmin';
+
 export default function App() {
+  // SaaS Platform vs School View State
+  const [viewMode, setViewMode] = useState<'super-admin' | 'school'>('super-admin');
+  const [activeImpersonation, setActiveImpersonation] = useState<{
+    role: string;
+    name: string;
+    schoolName: string;
+  } | null>(null);
+
   // App state
-  const [currentRole, setCurrentRole] = useState<UserRole>('student');
+  const [currentRole, setCurrentRole] = useState<UserRole>('principal');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('taleem_theme');
@@ -283,8 +296,65 @@ export default function App() {
     );
   }
 
+  const handleLaunchSchoolPortal = (school: SchoolTenant, role: string = 'Principal') => {
+    // Sync school name and details to institute state
+    setInstitute(prev => ({
+      ...prev,
+      name: school.name,
+      address: `${school.address}, ${school.city}, ${school.province}`,
+      phone: school.phone,
+      email: school.email,
+      website: school.website || prev.website,
+      logo: school.logo || prev.logo
+    }));
+
+    const mappedRole: UserRole = role.toLowerCase().includes('teach') 
+      ? 'teacher' 
+      : role.toLowerCase().includes('student') 
+      ? 'student' 
+      : role.toLowerCase().includes('parent') 
+      ? 'parent' 
+      : 'principal';
+
+    setCurrentRole(mappedRole);
+    setActiveTab('dashboard');
+    setActiveImpersonation({
+      role,
+      name: school.principalName,
+      schoolName: school.name
+    });
+    setViewMode('school');
+  };
+
+  const handleExitImpersonation = () => {
+    setActiveImpersonation(null);
+    setViewMode('super-admin');
+  };
+
+  // If in Super Admin mode, render the Enterprise Super Admin Dashboard
+  if (viewMode === 'super-admin') {
+    return (
+      <SuperAdminDashboard
+        onExitSuperAdmin={() => setViewMode('school')}
+        onLaunchSchoolPortal={handleLaunchSchoolPortal}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+      {/* Impersonation Banner if super admin is viewing this school */}
+      {activeImpersonation && (
+        <ImpersonationBanner
+          impersonatedRole={activeImpersonation.role}
+          impersonatedName={activeImpersonation.name}
+          schoolName={activeImpersonation.schoolName}
+          onStopImpersonation={handleExitImpersonation}
+        />
+      )}
+
       {/* Top Header */}
       <Header
         currentUser={currentUser}
@@ -299,6 +369,8 @@ export default function App() {
         unreadCount={unreadCount}
         onOpenOnboarding={() => setShowOnboardingModal(true)}
         onOpenLogin={() => setShowLoginModal(true)}
+        onOpenSuperAdmin={() => setViewMode('super-admin')}
+        isImpersonating={!!activeImpersonation}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
