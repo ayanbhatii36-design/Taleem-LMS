@@ -30,38 +30,47 @@ import {
   SupportTicket, 
   AuditLog, 
   SystemServiceStatus, 
-  GlobalAnnouncement 
+  GlobalAnnouncement,
+  SubscriptionPlan 
 } from '../../types/superAdmin';
 
 interface DashboardOverviewProps {
-  schools: SchoolTenant[];
-  transactions: PaymentTransaction[];
-  tickets: SupportTicket[];
-  auditLogs: AuditLog[];
-  systemServices: SystemServiceStatus[];
-  announcements: GlobalAnnouncement[];
-  onNavigateTab: (tabId: string) => void;
-  onSelectSchool: (school: SchoolTenant) => void;
-  onSelectTicket: (ticket: SupportTicket) => void;
-  onOpenAddSchoolModal: () => void;
-  onOpenBroadcastModal: () => void;
-  onImpersonateSchool: (school: SchoolTenant) => void;
+  schools?: SchoolTenant[];
+  transactions?: PaymentTransaction[];
+  tickets?: SupportTicket[];
+  auditLogs?: AuditLog[];
+  systemServices?: SystemServiceStatus[];
+  announcements?: GlobalAnnouncement[];
+  plans?: SubscriptionPlan[];
+  onNavigateTab?: (tabId: string) => void;
+  onNavigate?: (tabId: string) => void;
+  onSelectSchool?: (school: SchoolTenant) => void;
+  onSelectTicket?: (ticket: SupportTicket) => void;
+  onOpenAddSchoolModal?: () => void;
+  onOpenBroadcastModal?: () => void;
+  onImpersonateSchool?: (school: SchoolTenant) => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
-  schools,
-  transactions,
-  tickets,
-  auditLogs,
-  systemServices,
-  announcements,
+  schools = [],
+  transactions = [],
+  tickets = [],
+  auditLogs = [],
+  systemServices = [],
+  announcements = [],
+  plans = [],
   onNavigateTab,
-  onSelectSchool,
-  onSelectTicket,
-  onOpenAddSchoolModal,
-  onOpenBroadcastModal,
-  onImpersonateSchool
+  onNavigate,
+  onSelectSchool = (_school: SchoolTenant) => {},
+  onSelectTicket = (_ticket: SupportTicket) => {},
+  onOpenAddSchoolModal = () => {},
+  onOpenBroadcastModal = () => {},
+  onImpersonateSchool = (_school: SchoolTenant) => {}
 }) => {
+  const navigateTo = (tabId: string) => {
+    if (onNavigate) onNavigate(tabId);
+    else if (onNavigateTab) onNavigateTab(tabId);
+  };
   // Key Metrics Calculations
   const totalSchools = schools.length;
   const activeSchools = schools.filter(s => s.status === 'Active').length;
@@ -286,7 +295,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </p>
               </div>
               <button
-                onClick={() => onNavigateTab('schools')}
+                onClick={() => navigateTo('schools')}
                 className="text-xs font-bold text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-100 flex items-center gap-1 cursor-pointer"
               >
                 <span>View All ({schools.length})</span>
@@ -444,10 +453,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
 
             <button
-              onClick={() => onNavigateTab('system-health')}
+              onClick={() => navigateTo('status')}
               className="w-full mt-2 py-2 text-center text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900 rounded-xl transition-colors cursor-pointer"
             >
-              Inspect All 8 Services & Latencies →
+              Inspect All Services & Latencies →
             </button>
           </div>
 
@@ -459,7 +468,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Audit Trail Stream</h3>
               </div>
               <button
-                onClick={() => onNavigateTab('audit-logs')}
+                onClick={() => navigateTo('audit')}
                 className="text-[11px] font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
               >
                 Full Trail

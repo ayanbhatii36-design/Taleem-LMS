@@ -521,6 +521,8 @@ export default function App() {
         onClose={() => setIsSearchOpen(false)}
         students={students}
         teachers={teachers}
+        classes={classes}
+        feeInvoices={feeInvoices}
         courses={courses}
         onNavigate={(tab) => {
           setActiveTab(tab);

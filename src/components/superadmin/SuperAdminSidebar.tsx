@@ -31,42 +31,72 @@ export type SuperAdminNavTab =
   | 'overview'
   | 'schools'
   | 'subscriptions'
+  | 'plans'
   | 'billing'
   | 'users'
   | 'support'
+  | 'tickets'
   | 'analytics'
   | 'announcements'
   | 'system-health'
+  | 'status'
   | 'audit-logs'
+  | 'audit'
   | 'team'
   | 'settings';
 
 interface SuperAdminSidebarProps {
-  activeTab: SuperAdminNavTab;
-  onSelectTab: (tab: SuperAdminNavTab) => void;
-  isCollapsed: boolean;
+  activeTab?: string;
+  activeSection?: string;
+  onSelectTab?: (tab: any) => void;
+  onSelectSection?: (section: string) => void;
+  isCollapsed?: boolean;
   onToggleCollapse: () => void;
-  schools: SchoolTenant[];
-  supportTickets: SupportTicket[];
-  transactions: PaymentTransaction[];
-  onOpenAddSchoolModal: () => void;
+  schools?: SchoolTenant[];
+  supportTickets?: SupportTicket[];
+  transactions?: PaymentTransaction[];
+  pendingSchoolsCount?: number;
+  openTicketsCount?: number;
+  failedPaymentsCount?: number;
+  onOpenAddSchoolModal?: () => void;
 }
 
 export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   activeTab,
+  activeSection,
   onSelectTab,
-  isCollapsed,
+  onSelectSection,
+  isCollapsed = false,
   onToggleCollapse,
-  schools,
-  supportTickets,
-  transactions,
-  onOpenAddSchoolModal
+  schools = [],
+  supportTickets = [],
+  transactions = [],
+  pendingSchoolsCount: propPendingSchools,
+  openTicketsCount: propOpenTickets,
+  failedPaymentsCount: propFailedPayments,
+  onOpenAddSchoolModal = () => {}
 }) => {
-  const pendingSchoolsCount = schools.filter(s => s.status === 'Pending').length;
+  const currentTab = activeSection || activeTab || 'overview';
+  const handleSelect = (tab: string) => {
+    if (onSelectSection) onSelectSection(tab);
+    else if (onSelectTab) onSelectTab(tab);
+  };
+
+  const pendingSchoolsCount = propPendingSchools !== undefined 
+    ? propPendingSchools 
+    : schools.filter(s => s.status === 'Pending').length;
+
   const trialSchoolsCount = schools.filter(s => s.status === 'Trial').length;
-  const openTicketsCount = supportTickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
+
+  const openTicketsCount = propOpenTickets !== undefined 
+    ? propOpenTickets 
+    : supportTickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
+
   const urgentTicketsCount = supportTickets.filter(t => t.priority === 'Urgent' || t.priority === 'High').length;
-  const failedTxCount = transactions.filter(tx => tx.status === 'Failed').length;
+
+  const failedTxCount = propFailedPayments !== undefined 
+    ? propFailedPayments 
+    : transactions.filter(tx => tx.status === 'Failed').length;
 
   const navSections = [
     {
@@ -209,12 +239,30 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
             <div className="space-y-1">
               {section.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = activeTab === item.id;
+                const isTabMatch = 
+                  currentTab === item.id ||
+                  (item.id === 'subscriptions' && currentTab === 'plans') ||
+                  (item.id === 'plans' && currentTab === 'subscriptions') ||
+                  (item.id === 'support' && currentTab === 'tickets') ||
+                  (item.id === 'tickets' && currentTab === 'support') ||
+                  (item.id === 'system-health' && currentTab === 'status') ||
+                  (item.id === 'status' && currentTab === 'system-health') ||
+                  (item.id === 'audit-logs' && currentTab === 'audit') ||
+                  (item.id === 'audit' && currentTab === 'audit-logs');
+                const isActive = isTabMatch;
 
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onSelectTab(item.id)}
+                    onClick={() => {
+                      // Normalize to standard section name if needed
+                      let targetId = item.id;
+                      if (item.id === 'subscriptions') targetId = 'plans';
+                      if (item.id === 'support') targetId = 'tickets';
+                      if (item.id === 'system-health') targetId = 'status';
+                      if (item.id === 'audit-logs') targetId = 'audit';
+                      handleSelect(targetId);
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all group relative cursor-pointer ${
                       isActive
                         ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 shadow-2xs font-bold border border-teal-200/60 dark:border-teal-800/80'

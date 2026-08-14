@@ -7,6 +7,8 @@ interface ConfirmDangerModalProps {
   description: string;
   confirmText?: string;
   expectedInput?: string; // e.g., "DELETE SCHOOL" or school name
+  requiredConfirmationWord?: string;
+  requiredWord?: string;
   dangerLevel?: 'warning' | 'danger' | 'critical';
   onConfirm: () => void;
   onClose: () => void;
@@ -19,6 +21,8 @@ export const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
   description,
   confirmText = 'Confirm Dangerous Action',
   expectedInput,
+  requiredConfirmationWord,
+  requiredWord,
   dangerLevel = 'danger',
   onConfirm,
   onClose,
@@ -30,7 +34,8 @@ export const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isInputValid = expectedInput ? inputValue.trim() === expectedInput.trim() : true;
+  const targetExpected = expectedInput || requiredConfirmationWord || requiredWord;
+  const isInputValid = targetExpected ? inputValue.trim().toLowerCase() === targetExpected.trim().toLowerCase() : true;
   const isPasswordValid = requiresPassword ? passwordValue.length >= 4 : true;
   const canSubmit = isInputValid && isPasswordValid && !isLoading;
 
@@ -77,16 +82,16 @@ export const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
             {description}
           </div>
 
-          {expectedInput && (
+          {targetExpected && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                To confirm, type <span className="font-mono font-bold text-red-600 dark:text-red-400 px-1 py-0.5 rounded bg-red-100 dark:bg-red-950/50">{expectedInput}</span> below:
+                To confirm, type <span className="font-mono font-bold text-red-600 dark:text-red-400 px-1 py-0.5 rounded bg-red-100 dark:bg-red-950/50">{targetExpected}</span> below:
               </label>
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder={`Type "${expectedInput}"`}
+                placeholder={`Type "${targetExpected}"`}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:outline-none"
                 autoFocus
               />

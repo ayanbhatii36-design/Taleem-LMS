@@ -21,30 +21,36 @@ import { SchoolTenant, PaymentTransaction, SupportTicket, GlobalUser } from '../
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
-  schools: SchoolTenant[];
-  users: GlobalUser[];
-  transactions: PaymentTransaction[];
-  tickets: SupportTicket[];
-  onNavigateTab: (tabId: string) => void;
-  onSelectSchool: (school: SchoolTenant) => void;
-  onSelectTicket: (ticket: SupportTicket) => void;
-  onOpenAddSchool: () => void;
-  onOpenAddAnnouncement: () => void;
+  schools?: SchoolTenant[];
+  users?: GlobalUser[];
+  transactions?: PaymentTransaction[];
+  tickets?: SupportTicket[];
+  onNavigateTab?: (tabId: string) => void;
+  onNavigate?: (tabId: string) => void;
+  onSelectSchool?: (school: SchoolTenant) => void;
+  onSelectTicket?: (ticket: SupportTicket) => void;
+  onOpenAddSchool?: () => void;
+  onOpenAddAnnouncement?: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
-  schools,
-  users,
-  transactions,
-  tickets,
+  schools = [],
+  users = [],
+  transactions = [],
+  tickets = [],
   onNavigateTab,
-  onSelectSchool,
-  onSelectTicket,
-  onOpenAddSchool,
-  onOpenAddAnnouncement
+  onNavigate,
+  onSelectSchool = (_school: SchoolTenant) => {},
+  onSelectTicket = (_ticket: SupportTicket) => {},
+  onOpenAddSchool = () => {},
+  onOpenAddAnnouncement = () => {}
 }) => {
+  const navigateTo = (tabId: string) => {
+    if (onNavigate) onNavigate(tabId);
+    else if (onNavigateTab) onNavigateTab(tabId);
+  };
   const [query, setQuery] = useState('');
 
   // Keyboard shortcut listener for Escape
@@ -115,12 +121,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       transactions: matchedTransactions,
       quickActions: [
         { id: 'act-add-school', label: 'Create / Add New School', icon: Plus, action: onOpenAddSchool },
-        { id: 'act-schools', label: 'Go to All Schools Directory', icon: Building2, action: () => onNavigateTab('schools') },
-        { id: 'act-rev', label: 'View Revenue & Payment Reports', icon: CreditCard, action: () => onNavigateTab('revenue') },
-        { id: 'act-settings', label: 'Platform Settings & Gateways', icon: Settings, action: () => onNavigateTab('settings') }
+        { id: 'act-schools', label: 'Go to All Schools Directory', icon: Building2, action: () => navigateTo('schools') },
+        { id: 'act-rev', label: 'View Revenue & Payment Reports', icon: CreditCard, action: () => navigateTo('billing') },
+        { id: 'act-settings', label: 'Platform Settings & Gateways', icon: Settings, action: () => navigateTo('settings') }
       ].filter(a => a.label.toLowerCase().includes(q))
     };
-  }, [query, schools, users, tickets, transactions, onOpenAddSchool, onNavigateTab, onOpenAddAnnouncement]);
+  }, [query, schools, users, tickets, transactions, onOpenAddSchool, onNavigateTab, onNavigate, onOpenAddAnnouncement]);
 
   if (!isOpen) return null;
 
@@ -247,7 +253,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <button
                     key={usr.id}
                     onClick={() => {
-                      onNavigateTab('users');
+                      navigateTo('users');
                       onClose();
                     }}
                     className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
@@ -326,7 +332,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <button
                     key={tx.id}
                     onClick={() => {
-                      onNavigateTab('billing');
+                      navigateTo('billing');
                       onClose();
                     }}
                     className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"

@@ -1,34 +1,43 @@
 import React, { useState } from 'react';
 import { Search, X, GraduationCap, Users, BookOpen, CreditCard, ChevronRight } from 'lucide-react';
-import { Student, Teacher, ClassItem, FeeInvoice } from '../../types';
+import { Student, Teacher, ClassItem, FeeInvoice, Course } from '../../types';
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  students: Student[];
-  teachers: Teacher[];
-  classes: ClassItem[];
-  feeInvoices: FeeInvoice[];
-  onSelectTab: (tabId: string) => void;
+  students?: Student[];
+  teachers?: Teacher[];
+  classes?: ClassItem[];
+  feeInvoices?: FeeInvoice[];
+  courses?: Course[];
+  onSelectTab?: (tabId: string) => void;
+  onNavigate?: (tabId: string) => void;
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({
   isOpen,
   onClose,
-  students,
-  teachers,
-  classes,
-  feeInvoices,
-  onSelectTab
+  students = [],
+  teachers = [],
+  classes = [],
+  feeInvoices = [],
+  courses = [],
+  onSelectTab,
+  onNavigate
 }) => {
   const [query, setQuery] = useState('');
 
   if (!isOpen) return null;
 
+  const navigateTo = (tabId: string) => {
+    if (onNavigate) onNavigate(tabId);
+    else if (onSelectTab) onSelectTab(tabId);
+  };
+
   const trimmed = query.trim().toLowerCase();
 
   const matchingStudents = trimmed
-    ? students.filter(
+    ? (students || []).filter(
         (s) =>
           s.name.toLowerCase().includes(trimmed) ||
           s.rollNo.toLowerCase().includes(trimmed) ||
@@ -37,7 +46,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     : [];
 
   const matchingTeachers = trimmed
-    ? teachers.filter(
+    ? (teachers || []).filter(
         (t) =>
           t.name.toLowerCase().includes(trimmed) ||
           t.subjects.some((sub) => sub.toLowerCase().includes(trimmed)) ||
@@ -46,7 +55,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     : [];
 
   const matchingClasses = trimmed
-    ? classes.filter(
+    ? (classes || []).filter(
         (c) =>
           c.name.toLowerCase().includes(trimmed) ||
           c.section.toLowerCase().includes(trimmed)
@@ -54,7 +63,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     : [];
 
   const matchingInvoices = trimmed
-    ? feeInvoices.filter(
+    ? (feeInvoices || []).filter(
         (inv) =>
           inv.studentName.toLowerCase().includes(trimmed) ||
           inv.invoiceNo.toLowerCase().includes(trimmed) ||
@@ -62,8 +71,17 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       )
     : [];
 
+  const matchingCourses = trimmed
+    ? (courses || []).filter(
+        (c) =>
+          c.name.toLowerCase().includes(trimmed) ||
+          c.code.toLowerCase().includes(trimmed) ||
+          c.subject.toLowerCase().includes(trimmed)
+      )
+    : [];
+
   const totalResults =
-    matchingStudents.length + matchingTeachers.length + matchingClasses.length + matchingInvoices.length;
+    matchingStudents.length + matchingTeachers.length + matchingClasses.length + matchingInvoices.length + matchingCourses.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
@@ -131,7 +149,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       <button
                         key={s.id}
                         onClick={() => {
-                          onSelectTab('students');
+                          navigateTo('students');
                           onClose();
                         }}
                         className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/50 border border-slate-100 dark:border-slate-800 transition-colors text-left"
@@ -161,7 +179,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       <button
                         key={t.id}
                         onClick={() => {
-                          onSelectTab('teachers');
+                          navigateTo('teachers');
                           onClose();
                         }}
                         className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/50 border border-slate-100 dark:border-slate-800 transition-colors text-left"
@@ -191,7 +209,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       <button
                         key={inv.id}
                         onClick={() => {
-                          onSelectTab('fees');
+                          navigateTo('fees');
                           onClose();
                         }}
                         className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/50 border border-slate-100 dark:border-slate-800 transition-colors text-left"

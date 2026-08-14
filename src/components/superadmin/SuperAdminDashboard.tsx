@@ -429,11 +429,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               setSelectedSchool(null);
             }
           }}
+          schools={schools}
+          supportTickets={tickets}
+          transactions={transactions}
           pendingSchoolsCount={pendingSchoolsCount}
           openTicketsCount={openTicketsCount}
           failedPaymentsCount={failedPaymentsCount}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onOpenAddSchoolModal={() => setIsAddSchoolOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -446,6 +450,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             onToggleDarkMode={onToggleDarkMode}
             onOpenSettings={() => setActiveSection('settings')}
             onExitSuperAdmin={onExitSuperAdmin}
+            supportTickets={tickets}
+            systemServices={systemServices}
+            onNavigateTab={(sec) => setActiveSection(sec)}
           />
 
           {/* Dynamic Section View */}
@@ -564,6 +571,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         onClose={() => setIsCmdPaletteOpen(false)}
         schools={schools}
         users={users}
+        tickets={tickets}
+        transactions={transactions}
         onSelectSchool={handleSelectSchool}
         onNavigate={(sec) => setActiveSection(sec)}
         onOpenAddSchool={() => setIsAddSchoolOpen(true)}
