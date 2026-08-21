@@ -35,6 +35,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
   const activeChild = childrenList.find((c) => c.id === selectedChildId) || childrenList[0];
 
+  if (!activeChild) {
+    return (
+      <div className="p-10 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
+        No child records linked to this parent account yet. Please contact the school administration.
+      </div>
+    );
+  }
+
   const handleSend = () => {
     if (!contactTeacherModal || !messageText.trim()) return;
     onSendMessageToTeacher(contactTeacherModal.teacherName, contactTeacherModal.subject, messageText);
@@ -66,7 +74,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             <p className="text-[10px] uppercase font-bold text-amber-200 tracking-wider mb-1.5 px-2">
               Select Child to View
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {childrenList.map((child) => {
                 const isSelected = child.id === activeChild.id;
                 return (
@@ -314,7 +322,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
             onClick={() => setContactTeacherModal(null)}
           />
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
               Message {contactTeacherModal.teacherName}
             </h3>

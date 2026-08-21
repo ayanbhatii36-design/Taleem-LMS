@@ -2,14 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { sendError } from '../utils/response';
 import { AuthSession } from '../types/backend';
-import { db } from '../db/database';
+import { repo } from '../db/repository';
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthSession['user'];
   institute_id?: string;
 }
 
-export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function authenticateJWT(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
@@ -23,9 +23,9 @@ export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: 
 
   try {
     const decoded = verifyToken(token);
-    
+
     // Check if user still exists and active
-    const user = db.findUserById(decoded.id);
+    const user = await repo.users.findOne({ id: decoded.id });
     if (!user || !user.is_active) {
       return sendError(res, 'User account deactivated or not found', 401, 'UNAUTHORIZED');
     }

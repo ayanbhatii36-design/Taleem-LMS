@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Zap
 } from 'lucide-react';
-import { SchoolTenant, SubscriptionPlan, SubscriptionCycle } from '../../types/superAdmin';
+import { SchoolTenant, SubscriptionPlan, SubscriptionCycle } from '../types';
+import { INITIAL_PLANS } from '../data';
 
 interface SubscriptionDetailsModalProps {
   isOpen: boolean;
@@ -43,7 +44,8 @@ export const SubscriptionDetailsModal: React.FC<SubscriptionDetailsModalProps> =
   const [discountPct, setDiscountPct] = useState(0);
   const [extendTrialDays, setExtendTrialDays] = useState(0);
 
-  const currentPlan = plans.find(p => p.id === selectedPlanId) || plans[0];
+  const availablePlans = plans.length > 0 ? plans : INITIAL_PLANS;
+  const currentPlan = availablePlans.find(p => p.id === selectedPlanId) || availablePlans[0];
 
   const calculatedMonthly = Math.round(currentPlan.monthlyPricePKR * (1 - discountPct / 100));
   const calculatedAnnual = Math.round(currentPlan.annualPricePKR * (1 - discountPct / 100));
@@ -90,8 +92,8 @@ export const SubscriptionDetailsModal: React.FC<SubscriptionDetailsModalProps> =
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
               Select Package Tier
             </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              {plans.map((p) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {availablePlans.map((p) => {
                 const isSelected = selectedPlanId === p.id;
                 return (
                   <button
@@ -121,7 +123,7 @@ export const SubscriptionDetailsModal: React.FC<SubscriptionDetailsModalProps> =
           </div>
 
           {/* Billing Cycle */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Billing Cycle

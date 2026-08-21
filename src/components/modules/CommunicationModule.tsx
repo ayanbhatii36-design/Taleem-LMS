@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   MessageSquare,
   Bell,
@@ -30,8 +30,12 @@ export const CommunicationModule: React.FC<CommunicationModuleProps> = ({
   onPostAnnouncement
 }) => {
   const [activeTab, setActiveTab] = useState<'messages' | 'announcements' | 'preferences'>('messages');
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(messages[0] || null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [replyText, setReplyText] = useState('');
+
+  useEffect(() => {
+    setSelectedMessage(messages[0] || null);
+  }, [messages]);
 
   // Form for posting announcement
   const [showPostNoticeModal, setShowPostNoticeModal] = useState(false);
@@ -90,7 +94,7 @@ export const CommunicationModule: React.FC<CommunicationModuleProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setActiveTab('messages')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
@@ -116,7 +120,7 @@ export const CommunicationModule: React.FC<CommunicationModuleProps> = ({
 
       {activeTab === 'messages' ? (
         /* Direct Messages Chat Interface */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[550px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           {/* Inbox List Sidebar */}
           <div className="border-r border-slate-100 dark:border-slate-800 flex flex-col h-full">
             <div className="p-3.5 border-b border-slate-100 dark:border-slate-800">
@@ -230,7 +234,7 @@ export const CommunicationModule: React.FC<CommunicationModuleProps> = ({
       {showPostNoticeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setShowPostNoticeModal(false)} />
-          <form onSubmit={handleCreateNotice} className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-3">
+          <form onSubmit={handleCreateNotice} className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-3">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Post Official Campus Notice</h3>
             <div>
               <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Notice Title</label>

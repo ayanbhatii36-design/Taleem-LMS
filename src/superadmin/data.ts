@@ -10,7 +10,7 @@ import {
   SystemIncident,
   GlobalAnnouncement,
   SuperAdminSettingsState
-} from '../types/superAdmin';
+} from './types';
 
 export const initialSuperAdminPlans: SubscriptionPlan[] = [
   {

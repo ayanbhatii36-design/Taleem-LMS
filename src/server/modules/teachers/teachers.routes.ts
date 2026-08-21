@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../../db/database';
+import { repo } from '../../db/repository';
 import { sendSuccess, sendError } from '../../utils/response';
 import { authenticateJWT, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { enforceTenantIsolation } from '../../middleware/tenant.middleware';
@@ -11,20 +11,22 @@ const router = Router();
 router.use(authenticateJWT, enforceTenantIsolation);
 
 // List Teachers
-router.get('/', requirePermission('teacher.view'), (req: AuthenticatedRequest, res) => {
-  const teachers = db.teachers.filter((t) => t.institute_id === req.institute_id && !t.is_deleted);
-  
-  const populated = teachers.map((t) => {
-    const user = db.findUserById(t.user_id);
-    const assignedSlots = db.timetableSlots.filter((slot) => slot.teacher_id === t.user_id);
-    return {
-      ...t,
-      email: user?.email,
-      phone: user?.phone,
-      assignedClassesCount: new Set(assignedSlots.map((s) => s.class_id)).size,
-      weeklyLecturesCount: assignedSlots.length
-    };
-  });
+router.get('/', requirePermission('teacher.view'), async (req: AuthenticatedRequest, res) => {
+  const teachers = await repo.teachers.find({ institute_id: req.institute_id, is_deleted: { $ne: true } });
+
+  const populated = await Promise.all(
+    teachers.map(async (t) => {
+      const user = await repo.users.findOne({ id: t.user_id });
+      const assignedSlots = await repo.timetableSlots.find({ teacher_id: t.user_id });
+      return {
+        ...t,
+        email: user?.email,
+        phone: user?.phone,
+        assignedClassesCount: new Set(assignedSlots.map((s) => s.class_id)).size,
+        weeklyLecturesCount: assignedSlots.length
+      };
+    })
+  );
 
   return sendSuccess(res, populated);
 });
@@ -36,7 +38,7 @@ router.post('/', requirePermission('teacher.create'), async (req: AuthenticatedR
     return sendError(res, 'Email and full_name are required', 400);
   }
 
-  const existingUser = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  const existingUser = await repo.users.findOne({ email: email.toLowerCase() });
   if (existingUser) return sendError(res, 'Email already in use', 400);
 
   const pwdHash = await hashPassword(password || 'Pass1234');
@@ -58,7 +60,7 @@ router.post('/', requirePermission('teacher.create'), async (req: AuthenticatedR
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.users.push(newUser);
+  await repo.users.insertOne(newUser);
 
   const teacherId = `tch-${Date.now()}`;
   const newTeacher: TeacherEntity = {
@@ -75,11 +77,33 @@ router.post('/', requirePermission('teacher.create'), async (req: AuthenticatedR
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.teachers.push(newTeacher);
+  const createdTeacher = await repo.teachers.insertOne(newTeacher);
 
-  db.logAudit(req.institute_id!, req.user!.id, req.user!.full_name, req.user!.role, 'CREATE_TEACHER', 'TEACHER', teacherId);
+  await repo.auditLogs.insertOne({
+    institute_id: req.institute_id!,
+    user_id: req.user!.id,
+    user_name: req.user!.full_name,
+    user_role: req.user!.role,
+    action: 'CREATE_TEACHER',
+    target_resource: 'TEACHER',
+    target_id: teacherId,
+    ip_address: req.ip
+  });
 
-  return sendSuccess(res, newTeacher, 'Teacher created successfully', 201);
+  return sendSuccess(res, createdTeacher, 'Teacher created successfully', 201);
+});
+
+// Delete / Archive Teacher
+router.delete('/:id', requirePermission('teacher.delete'), async (req: AuthenticatedRequest, res) => {
+  const teacher = await repo.teachers.findOne({ id: req.params.id, institute_id: req.institute_id });
+  if (!teacher) return sendError(res, 'Teacher not found', 404);
+
+  await repo.teachers.updateOne(
+    { id: teacher.id },
+    { is_deleted: true, deleted_at: new Date().toISOString(), status: 'RESIGNED' }
+  );
+
+  return sendSuccess(res, null, 'Teacher record archived');
 });
 
 export default router;

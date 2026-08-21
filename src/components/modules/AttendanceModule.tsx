@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarCheck,
   CheckCircle2,
@@ -25,21 +25,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   currentRole,
   students,
   classes,
-  defaultClassName = 'Class 10'
+  defaultClassName = 'All'
 }) => {
   const [selectedClass, setSelectedClass] = useState<string>(defaultClassName);
   const [attendanceDate, setAttendanceDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  
-  // Local state for fast attendance marking
-  const [markingState, setMarkingState] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Excused'>>({
-    'std-1': 'Present',
-    'std-2': 'Absent',
-    'std-3': 'Present',
-    'std-4': 'Late',
-    'std-5': 'Present'
-  });
 
-  const classStudents = students.filter((s) => s.className.includes(selectedClass) || selectedClass === 'All');
+  // Local state for fast attendance marking — starts empty, every student defaults to Present
+  const [markingState, setMarkingState] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Excused'>>({});
+
+  const classOptions = Array.from(new Set(classes.map((c) => c.name).filter(Boolean)));
+
+  useEffect(() => {
+    if (classOptions.length > 0 && !classOptions.includes(selectedClass) && selectedClass !== 'All') {
+      setSelectedClass(classOptions[0]);
+    }
+  }, [classes]);
+
+  const classStudents = students.filter((s) => selectedClass === 'All' || s.className.includes(selectedClass));
+
+  const getStatus = (studentId: string): 'Present' | 'Absent' | 'Late' | 'Excused' =>
+    markingState[studentId] || 'Present';
 
   const handleStatusChange = (studentId: string, status: 'Present' | 'Absent' | 'Late' | 'Excused') => {
     setMarkingState((prev) => ({ ...prev, [studentId]: status }));
@@ -57,9 +62,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     alert(`Attendance for ${selectedClass} on ${attendanceDate} saved successfully.`);
   };
 
-  const presentCount = Object.values(markingState).filter((st) => st === 'Present').length;
-  const absentCount = Object.values(markingState).filter((st) => st === 'Absent').length;
-  const lateCount = Object.values(markingState).filter((st) => st === 'Late').length;
+  const presentCount = classStudents.filter((s) => getStatus(s.id) === 'Present').length;
+  const absentCount = classStudents.filter((s) => getStatus(s.id) === 'Absent').length;
+  const lateCount = classStudents.filter((s) => getStatus(s.id) === 'Late').length;
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -78,7 +83,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
 
         {(currentRole === 'teacher' || currentRole === 'principal') && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSelectAllPresent}
               className="px-3.5 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 hover:bg-emerald-200 text-emerald-800 dark:text-emerald-300 font-bold text-xs transition-colors flex items-center gap-1.5"
@@ -106,10 +111,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               onChange={(e) => setSelectedClass(e.target.value)}
               className="px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-none"
             >
-              <option value="Class 10">Class 10-A (Pre-Engineering)</option>
-              <option value="Class 9">Class 9 (Science B)</option>
-              <option value="Class 8">Class 8-B</option>
-              <option value="F.Sc Part 1">F.Sc Part 1 (Pre-Medical)</option>
+              <option value="All">All Classes</option>
+              {classOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -153,7 +160,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {classStudents.map((std) => {
-                const currentStatus = markingState[std.id] || 'Present';
+                const currentStatus = getStatus(std.id);
                 const isLowAttendance = std.attendancePct < 80;
 
                 return (
@@ -192,7 +199,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </td>
                     <td className="p-3.5 text-center">
                       {/* Interactive Radio Toggle Buttons */}
-                      <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                      <div className="inline-flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
                         {(['Present', 'Absent', 'Late', 'Excused'] as const).map((st) => {
                           const isActive = currentStatus === st;
                           return (

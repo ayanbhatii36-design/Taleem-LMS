@@ -20,7 +20,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ role, onComple
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4">
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-teal-600" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">Profile Verification & Onboarding</h3>

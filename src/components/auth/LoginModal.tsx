@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
-import { Shield, Lock, User, Phone, CheckCircle2, ArrowRight, KeyRound, Sparkles, FastForward } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FastForward, KeyRound, Loader2 } from 'lucide-react';
 import { UserRole } from '../../types';
+import { AuthUser, clearSession, storeSession } from '../../api/client';
+import { authApi } from '../../api/auth';
+import { isBackendReachable, invalidateReachability } from '../../api/useApi';
 
 interface LoginModalProps {
   isOpen?: boolean;
   initialRole?: UserRole;
   onClose: () => void;
-  onLoginSuccess: (role: UserRole) => void;
+  onLoginSuccess: (role: UserRole, user?: AuthUser) => void;
+}
+
+const ROLE_PRESETS: Record<UserRole, { email: string; password: string }> = {
+  principal: { email: 'principal@imcb.edu.pk', password: 'Pass1234' },
+  teacher: { email: 'teacher@imcb.edu.pk', password: 'Pass1234' },
+  student: { email: 'student@imcb.edu.pk', password: 'Pass1234' },
+  parent: { email: 'parent@imcb.edu.pk', password: 'Pass1234' }
+};
+
+function mapBackendRole(role: string): UserRole {
+  if (role === 'teacher') return 'teacher';
+  if (role === 'student') return 'student';
+  if (role === 'parent') return 'parent';
+  return 'principal';
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -16,38 +33,73 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onLoginSuccess
 }) => {
   const [role, setRole] = useState<UserRole>(initialRole);
-  const [email, setEmail] = useState('principal@islamabadcollege.edu.pk');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState(ROLE_PRESETS[initialRole].email);
+  const [password, setPassword] = useState(ROLE_PRESETS[initialRole].password);
   const [step, setStep] = useState<'credentials' | '2fa'>('credentials');
   const [twoFactorCode, setTwoFactorCode] = useState('582910');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleCloseModal = () => {
     setStep('credentials');
+    setErrorMsg(null);
     onClose();
   };
 
-  const handleSubmitCredentials = (e: React.FormEvent) => {
+  const selectRole = (r: UserRole) => {
+    setRole(r);
+    setEmail(ROLE_PRESETS[r].email);
+    setPassword(ROLE_PRESETS[r].password);
+    setErrorMsg(null);
+  };
+
+  const completeLogin = (mappedRole: UserRole, backendUser?: AuthUser) => {
+    setStep('credentials');
+    setErrorMsg(null);
+    onLoginSuccess(mappedRole, backendUser);
+  };
+
+  const handleSubmitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep('2fa');
+    setErrorMsg(null);
+    setLoading(true);
+
+    try {
+      const reachable = await isBackendReachable();
+      if (!reachable) {
+        // Backend offline → demo fallback (bypass 2FA, enter portal directly)
+        clearSession();
+        setLoading(false);
+        completeLogin(role);
+        return;
+      }
+
+      const result = await authApi.login(email.trim(), password);
+      storeSession(result.token, result.refreshToken, result.user);
+      invalidateReachability();
+      setLoading(false);
+      setStep('2fa'); // demo 2FA step, credentials already verified
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMsg(err?.message || 'Login failed. Please check your credentials.');
+    }
   };
 
   const handleVerify2FA = (e: React.FormEvent) => {
     e.preventDefault();
-    setStep('credentials');
-    onLoginSuccess(role);
+    completeLogin(role);
   };
 
   const handleBypass2FA = () => {
-    setStep('credentials');
-    onLoginSuccess(role);
+    completeLogin(role);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={handleCloseModal} />
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-teal-600 flex items-center justify-center font-black text-white text-sm">
@@ -55,7 +107,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Portal Secure Sign-In</h3>
-              <p className="text-[10px] text-slate-400">Pakistani Educational Institution Login</p>
+              <p className="text-[10px] text-slate-400">TaleemLMS — Authenticated via Backend API</p>
             </div>
           </div>
           <button onClick={handleCloseModal} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
@@ -70,13 +122,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <button
                     key={r}
                     type="button"
-                    onClick={() => {
-                      setRole(r);
-                      if (r === 'principal') setEmail('principal@islamabadcollege.edu.pk');
-                      if (r === 'teacher') setEmail('farooq.physics@islamabadcollege.edu.pk');
-                      if (r === 'student') setEmail('zainab.student@islamabadcollege.edu.pk');
-                      if (r === 'parent') setEmail('tariq.guardian@gmail.com');
-                    }}
+                    onClick={() => selectRole(r)}
                     className={`p-2.5 rounded-xl border text-xs font-bold capitalize transition-all ${
                       role === r
                         ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
@@ -91,7 +137,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
             <div className="space-y-2 text-xs">
               <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300">Email or Registration ID</label>
+                <label className="font-bold text-slate-700 dark:text-slate-300">Email or Phone</label>
                 <input
                   type="text"
                   required
@@ -113,13 +159,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </div>
             </div>
 
+            {errorMsg && (
+              <p className="text-[11px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl p-2.5">
+                {errorMsg}
+              </p>
+            )}
+
             <div className="space-y-2 pt-1">
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-md shadow-teal-700/20 transition-all flex items-center justify-center gap-2"
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-md shadow-teal-700/20 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <span>Continue to 2FA Step</span>
-                <ArrowRight className="w-4 h-4" />
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                <span>{loading ? 'Verifying credentials…' : 'Continue to 2FA Step'}</span>
               </button>
 
               <button
@@ -128,7 +181,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-2"
               >
                 <FastForward className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Bypass 2FA & Direct Access to Interface</span>
+                <span>Skip Login & Open Demo Interface</span>
               </button>
             </div>
           </form>
@@ -140,7 +193,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 Two-Factor Security Verification
               </p>
               <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                Enter the 6-digit SMS code sent to <span className="font-semibold">+92 300 5551234</span>
+                Enter the 6-digit SMS code sent to your registered phone
               </p>
               <p className="text-[10px] text-teal-700 dark:text-teal-300 font-medium">
                 (Demo code auto-filled: <span className="font-bold">582910</span>)

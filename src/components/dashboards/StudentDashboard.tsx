@@ -25,7 +25,7 @@ import {
 } from '../../types';
 
 interface StudentDashboardProps {
-  student: Student;
+  student?: Student;
   courses: Course[];
   assignments: Assignment[];
   exams: Exam[];
@@ -47,7 +47,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 }) => {
   const pendingAssignments = assignments.filter((a) => a.submissionStatus === 'Pending');
   const upcomingExams = exams.filter((e) => e.status === 'Upcoming');
-  const todayClasses = timetable.filter((t) => t.day === 'Monday' || t.day === 'Tuesday').slice(0, 4);
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as TimetableSlot['day'];
+  const todayClasses = timetable.filter((t) => t.day === today).slice(0, 4);
+
+  if (!student) {
+    return (
+      <div className="p-10 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
+        No student profile found in the database. Ask your principal to add your student record.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -69,7 +78,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="flex items-center gap-3 self-start md:self-auto bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shrink-0">
             <div className="text-center px-3 border-r border-white/10">
               <p className="text-[10px] uppercase tracking-wider text-teal-200 font-medium">Attendance</p>
               <p className="text-xl font-black text-white">{student.attendancePct}%</p>

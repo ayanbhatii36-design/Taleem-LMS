@@ -11,12 +11,11 @@ import {
   Zap, 
   ShieldCheck, 
   Activity, 
-  Bell, 
   Settings, 
   X,
   Plus
 } from 'lucide-react';
-import { SchoolTenant, PaymentTransaction, SupportTicket, GlobalUser } from '../../types/superAdmin';
+import { SchoolTenant, PaymentTransaction, SupportTicket, GlobalUser } from '../types';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -44,8 +43,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigate,
   onSelectSchool = (_school: SchoolTenant) => {},
   onSelectTicket = (_ticket: SupportTicket) => {},
-  onOpenAddSchool = () => {},
-  onOpenAddAnnouncement = () => {}
+  onOpenAddSchool = () => {}
 }) => {
   const navigateTo = (tabId: string) => {
     if (onNavigate) onNavigate(tabId);
@@ -79,10 +77,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         transactions: transactions.slice(0, 2),
         quickActions: [
           { id: 'act-add-school', label: 'Create / Add New School Tenant', icon: Plus, action: onOpenAddSchool },
-          { id: 'act-rev', label: 'View SaaS Revenue & MRR Analytics', icon: CreditCard, action: () => onNavigateTab('revenue') },
-          { id: 'act-health', label: 'Inspect Live System Services & Health', icon: Activity, action: () => onNavigateTab('system-health') },
-          { id: 'act-audit', label: 'Review Security & Audit Trail', icon: ShieldCheck, action: () => onNavigateTab('audit-logs') },
-          { id: 'act-anc', label: 'Broadcast Global System Announcement', icon: Bell, action: onOpenAddAnnouncement }
+          { id: 'act-rev', label: 'View SaaS Revenue & MRR Analytics', icon: CreditCard, action: () => navigateTo('billing') },
+          { id: 'act-health', label: 'Inspect Live System Services & Health', icon: Activity, action: () => navigateTo('status') },
+          { id: 'act-audit', label: 'Review Security & Audit Trail', icon: ShieldCheck, action: () => navigateTo('audit') }
         ]
       };
     }
@@ -126,7 +123,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         { id: 'act-settings', label: 'Platform Settings & Gateways', icon: Settings, action: () => navigateTo('settings') }
       ].filter(a => a.label.toLowerCase().includes(q))
     };
-  }, [query, schools, users, tickets, transactions, onOpenAddSchool, onNavigateTab, onNavigate, onOpenAddAnnouncement]);
+  }, [query, schools, users, tickets, transactions, onOpenAddSchool, onNavigateTab, onNavigate]);
 
   if (!isOpen) return null;
 
@@ -356,7 +353,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-400">
           <div className="flex items-center gap-2">
             <span>Navigation:</span>
             <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">↑</kbd>

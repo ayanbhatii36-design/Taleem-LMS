@@ -1,0 +1,100 @@
+import mongoose, { Model, model } from 'mongoose';
+import {
+  instituteSchema,
+  userSchema,
+  studentSchema,
+  teacherSchema,
+  parentSchema,
+  parentStudentLinkSchema,
+  academicYearSchema,
+  termSchema,
+  classSchema,
+  sectionSchema,
+  subjectSchema,
+  courseSchema,
+  classSubjectAssignmentSchema,
+  attendanceSchema,
+  assignmentSchema,
+  submissionSchema,
+  examSchema,
+  examSubjectSchema,
+  gradeRecordSchema,
+  timetableSlotSchema,
+  feeStructureSchema,
+  invoiceSchema,
+  paymentSchema,
+  announcementSchema,
+  messageSchema,
+  notificationSchema,
+  auditLogSchema,
+  fileMetadataSchema
+} from './schemas';
+
+const MODEL_NAMES = [
+  'Institute',
+  'User',
+  'Student',
+  'Teacher',
+  'Parent',
+  'ParentStudentLink',
+  'AcademicYear',
+  'Term',
+  'Class',
+  'Section',
+  'Subject',
+  'Course',
+  'ClassSubjectAssignment',
+  'Attendance',
+  'Assignment',
+  'Submission',
+  'Exam',
+  'ExamSubject',
+  'GradeRecord',
+  'TimetableSlot',
+  'FeeStructure',
+  'Invoice',
+  'Payment',
+  'Announcement',
+  'Message',
+  'Notification',
+  'AuditLog',
+  'FileMetadata'
+] as const;
+
+const SCHEMA_MAP: Record<string, any> = {
+  Institute: instituteSchema,
+  User: userSchema,
+  Student: studentSchema,
+  Teacher: teacherSchema,
+  Parent: parentSchema,
+  ParentStudentLink: parentStudentLinkSchema,
+  AcademicYear: academicYearSchema,
+  Term: termSchema,
+  Class: classSchema,
+  Section: sectionSchema,
+  Subject: subjectSchema,
+  Course: courseSchema,
+  ClassSubjectAssignment: classSubjectAssignmentSchema,
+  Attendance: attendanceSchema,
+  Assignment: assignmentSchema,
+  Submission: submissionSchema,
+  Exam: examSchema,
+  ExamSubject: examSubjectSchema,
+  GradeRecord: gradeRecordSchema,
+  TimetableSlot: timetableSlotSchema,
+  FeeStructure: feeStructureSchema,
+  Invoice: invoiceSchema,
+  Payment: paymentSchema,
+  Announcement: announcementSchema,
+  Message: messageSchema,
+  Notification: notificationSchema,
+  AuditLog: auditLogSchema,
+  FileMetadata: fileMetadataSchema
+};
+
+export function getModel<T = any>(name: string): Model<T> | null {
+  if (mongoose.models[name]) return mongoose.models[name] as Model<T>;
+  const schema = SCHEMA_MAP[name];
+  if (!schema) return null;
+  return model<T>(name, schema);
+}

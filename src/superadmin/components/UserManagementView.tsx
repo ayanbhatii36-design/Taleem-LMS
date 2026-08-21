@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   FileSpreadsheet
 } from 'lucide-react';
-import { GlobalUser, SchoolTenant } from '../../types/superAdmin';
+import { GlobalUser, SchoolTenant } from '../types';
 
 interface UserManagementViewProps {
   users: GlobalUser[];
@@ -48,6 +48,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [newPassword, setNewPassword] = useState('Pass#' + Math.floor(1000 + Math.random() * 9000));
   const [isResetDone, setIsResetDone] = useState(false);
 
+  const roleOptions = useMemo(() => {
+    return Array.from(new Set(users.map(u => u.role))).sort();
+  }, [users]);
+
+  const statusOptions = useMemo(() => {
+    return Array.from(new Set(users.map(u => u.status))).sort();
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
     return users.filter(usr => {
       const matchesSearch = 
@@ -66,7 +74,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const handleConfirmImpersonate = () => {
     if (impersonateTarget) {
-      onImpersonateUser(impersonateTarget, impersonateReason || 'Super admin diagnostics');
+      onImpersonateUser(impersonateTarget, impersonateReason || '');
       setImpersonateTarget(null);
       setImpersonateReason('');
     }
@@ -125,12 +133,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
               <option value="All">All User Roles</option>
-              <option value="Super Admin">Super Admin</option>
-              <option value="Principal">School Principal</option>
-              <option value="Teacher">Teacher / Faculty</option>
-              <option value="Student">Student</option>
-              <option value="Parent">Parent / Guardian</option>
-              <option value="Accountant">Accountant / Finance</option>
+              {roleOptions.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
             </select>
           </div>
 
@@ -143,8 +148,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
               <option value="All">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Suspended">Suspended</option>
+              {statusOptions.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -271,7 +277,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setImpersonateTarget(null)} />
 
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <ExternalLink className="w-4 h-4 text-teal-600" />
               <span>Impersonate User Session</span>
@@ -312,7 +318,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setPasswordTarget(null)} />
 
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Key className="w-4 h-4 text-teal-600" />
               <span>Reset User Credentials</span>

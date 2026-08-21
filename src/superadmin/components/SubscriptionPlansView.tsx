@@ -13,7 +13,7 @@ import {
   HelpCircle,
   X
 } from 'lucide-react';
-import { SubscriptionPlan, SchoolTenant } from '../../types/superAdmin';
+import { SubscriptionPlan, SchoolTenant } from '../types';
 
 interface SubscriptionPlansViewProps {
   plans: SubscriptionPlan[];
@@ -165,7 +165,7 @@ export const SubscriptionPlansView: React.FC<SubscriptionPlansViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setEditingPlan(null)} />
 
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-teal-600" />
@@ -177,7 +177,7 @@ export const SubscriptionPlansView: React.FC<SubscriptionPlansViewProps> = ({
             </div>
 
             <form onSubmit={handleSavePlan} className="mt-4 space-y-4 text-xs font-medium">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Monthly Fee (PKR)

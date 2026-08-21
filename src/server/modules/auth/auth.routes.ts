@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { db } from '../../db/database';
+import { repo } from '../../db/repository';
 import { comparePassword, hashPassword, validatePasswordStrength } from '../../utils/password';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt';
 import { sendSuccess, sendError } from '../../utils/response';
 import { ROLE_PERMISSIONS, SECURITY_CONFIG } from '../../config/constants';
 import { createRateLimiter } from '../../middleware/rateLimiter.middleware';
 import { authenticateJWT, AuthenticatedRequest } from '../../middleware/auth.middleware';
+import { User } from '../../types/backend';
 
 const router = Router();
 
@@ -16,17 +17,33 @@ const loginSchema = z.object({
   instituteCode: z.string().optional()
 });
 
+const registerSchema = z.object({
+  full_name: z.string().min(2, 'Full name is required'),
+  email: z.string().email('A valid email is required'),
+  phone: z.string().min(10, 'A valid phone number is required'),
+  password: z.string().min(1, 'Password is required'),
+  role: z.enum(['principal', 'teacher', 'student', 'parent']),
+  instituteCode: z.string().optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  dob: z.string().optional(),
+  guardian_name: z.string().optional(),
+  guardian_phone: z.string().optional(),
+  designation: z.string().optional(),
+  qualification: z.string().optional()
+});
+
 // Login (email/password or phone/password)
 router.post('/login', createRateLimiter(15 * 60 * 1000, 10), async (req, res) => {
   try {
     const body = loginSchema.parse(req.body);
-    
+
     // Find user by email or phone
-    let user = db.users.find(
-      (u) =>
-        !u.is_deleted &&
-        (u.email.toLowerCase() === body.emailOrPhone.toLowerCase() || u.phone === body.emailOrPhone)
-    );
+    let user = await repo.users.findOne({
+      $or: [
+        { email: body.emailOrPhone.toLowerCase() },
+        { phone: body.emailOrPhone }
+      ]
+    });
 
     if (!user) {
       return sendError(res, 'Invalid credentials or user not found', 401, 'INVALID_CREDENTIALS');
@@ -45,19 +62,23 @@ router.post('/login', createRateLimiter(15 * 60 * 1000, 10), async (req, res) =>
     // Verify password
     const passwordMatch = await comparePassword(body.password, user.password_hash);
     if (!passwordMatch) {
-      user.failed_login_attempts = (user.failed_login_attempts || 0) + 1;
-      if (user.failed_login_attempts >= SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS) {
-        user.lockout_until = new Date(Date.now() + SECURITY_CONFIG.LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
+      const attempts = (user.failed_login_attempts || 0) + 1;
+      const update: any = { failed_login_attempts: attempts };
+      if (attempts >= SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS) {
+        update.lockout_until = new Date(Date.now() + SECURITY_CONFIG.LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
       }
+      await repo.users.updateOne({ id: user.id }, update);
       return sendError(res, 'Invalid credentials', 401, 'INVALID_CREDENTIALS');
     }
 
     // Reset failed attempts
-    user.failed_login_attempts = 0;
-    user.lockout_until = null;
-    user.last_login_at = new Date().toISOString();
+    await repo.users.updateOne(
+      { id: user.id },
+      { failed_login_attempts: 0, lockout_until: null, last_login_at: new Date().toISOString() }
+    );
+    user = (await repo.users.findOne({ id: user.id })) || user;
 
-    const institute = db.institutes.find((i) => i.id === user?.institute_id);
+    const institute = await repo.institutes.findOne({ id: user.institute_id });
     const permissions = ROLE_PERMISSIONS[user.role] || [];
 
     const userPayload = {
@@ -73,7 +94,17 @@ router.post('/login', createRateLimiter(15 * 60 * 1000, 10), async (req, res) =>
 
     const tokens = generateTokens(userPayload);
 
-    db.logAudit(user.institute_id, user.id, user.full_name, user.role, 'LOGIN_SUCCESS', 'AUTH', user.id, req.ip);
+    await repo.auditLogs.insertOne({
+      institute_id: user.institute_id,
+      user_id: user.id,
+      user_name: user.full_name,
+      user_role: user.role,
+      action: 'LOGIN_SUCCESS',
+      target_resource: 'AUTH',
+      target_id: user.id,
+      ip_address: req.ip,
+      metadata_json: JSON.stringify({ path: req.originalUrl, method: req.method })
+    });
 
     return sendSuccess(
       res,
@@ -92,8 +123,148 @@ router.post('/login', createRateLimiter(15 * 60 * 1000, 10), async (req, res) =>
   }
 });
 
+// Register (multi-role signup with auto-login)
+router.post('/register', createRateLimiter(15 * 60 * 1000, 10), async (req, res) => {
+  try {
+    const body = registerSchema.parse(req.body);
+
+    const val = validatePasswordStrength(body.password);
+    if (!val.valid) {
+      return sendError(res, val.reason || 'Weak password', 400, 'WEAK_PASSWORD');
+    }
+
+    const email = body.email.toLowerCase();
+    const existing = await repo.users.findOne({ $or: [{ email }, { phone: body.phone }] });
+    if (existing) {
+      return sendError(res, 'An account with this email or phone already exists', 409, 'ACCOUNT_EXISTS');
+    }
+
+    // Resolve institute: by code if provided, otherwise the default/primary tenant
+    let institute = body.instituteCode
+      ? await repo.institutes.findOne({ code: body.instituteCode })
+      : null;
+    if (!institute) {
+      const all = await repo.institutes.find({});
+      institute = all[0] || null;
+    }
+    if (!institute) {
+      return sendError(res, 'No institute is configured yet. Please contact support.', 500, 'NO_INSTITUTE');
+    }
+
+    const now = new Date().toISOString();
+    const userId = `usr-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    const user: User = {
+      id: userId,
+      institute_id: institute.id,
+      email,
+      phone: body.phone,
+      password_hash: await hashPassword(body.password),
+      full_name: body.full_name,
+      role: body.role,
+      is_active: true,
+      is_email_verified: false,
+      is_phone_verified: false,
+      two_factor_enabled: false,
+      failed_login_attempts: 0,
+      created_at: now,
+      updated_at: now
+    };
+    await repo.users.insertOne(user);
+
+    // Create role-specific profile records
+    if (body.role === 'teacher') {
+      await repo.teachers.insertOne({
+        id: `tch-${Date.now()}`,
+        institute_id: institute.id,
+        user_id: userId,
+        emp_id: `TCH-${Math.floor(1000 + Math.random() * 9000)}`,
+        full_name: body.full_name,
+        designation: body.designation || 'Lecturer',
+        qualification: body.qualification || '',
+        specialization: '',
+        joining_date: now.slice(0, 10),
+        status: 'ACTIVE',
+        created_at: now,
+        updated_at: now
+      });
+    } else if (body.role === 'student') {
+      const academicYear = (await repo.academicYears.find({ institute_id: institute.id, is_current: true }))[0];
+      await repo.students.insertOne({
+        id: `std-${Date.now()}`,
+        institute_id: institute.id,
+        user_id: userId,
+        registration_no: `REG-${Math.floor(1000 + Math.random() * 9000)}`,
+        roll_no: String(Math.floor(1000 + Math.random() * 9000)),
+        full_name: body.full_name,
+        gender: body.gender || 'OTHER',
+        dob: body.dob || '',
+        cnic_bform: '',
+        class_id: '',
+        section_id: '',
+        academic_year_id: academicYear?.id || '',
+        guardian_name: body.guardian_name || '',
+        guardian_phone: body.guardian_phone || body.phone,
+        guardian_relation: 'GUARDIAN',
+        address: '',
+        status: 'ACTIVE',
+        admission_date: now.slice(0, 10),
+        created_at: now,
+        updated_at: now
+      });
+    } else if (body.role === 'parent') {
+      await repo.parents.insertOne({
+        id: `prn-${Date.now()}`,
+        institute_id: institute.id,
+        user_id: userId,
+        full_name: body.full_name,
+        cnic: '',
+        occupation: '',
+        address: '',
+        created_at: now,
+        updated_at: now
+      });
+    }
+
+    const permissions = ROLE_PERMISSIONS[user.role] || [];
+    const userPayload = {
+      id: user.id,
+      institute_id: user.institute_id,
+      email: user.email,
+      phone: user.phone,
+      full_name: user.full_name,
+      role: user.role,
+      permissions,
+      institute_name: institute.name
+    };
+    const tokens = generateTokens(userPayload);
+
+    await repo.auditLogs.insertOne({
+      institute_id: user.institute_id,
+      user_id: user.id,
+      user_name: user.full_name,
+      user_role: user.role,
+      action: 'REGISTER',
+      target_resource: 'AUTH',
+      target_id: user.id,
+      ip_address: req.ip,
+      metadata_json: JSON.stringify({ path: req.originalUrl, method: req.method })
+    });
+
+    return sendSuccess(
+      res,
+      { user: userPayload, token: tokens.token, refreshToken: tokens.refreshToken },
+      'Account created successfully. You are now signed in.'
+    );
+  } catch (err: any) {
+    if (err.name === 'ZodError') {
+      return sendError(res, 'Validation error', 400, 'VALIDATION_ERROR', err.errors);
+    }
+    return sendError(res, err.message || 'Registration failed', 500);
+  }
+});
+
 // Refresh Token
-router.post('/refresh', (req, res) => {
+router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
     return sendError(res, 'Refresh token required', 400, 'MISSING_REFRESH_TOKEN');
@@ -101,12 +272,12 @@ router.post('/refresh', (req, res) => {
 
   try {
     const decoded = verifyRefreshToken(refreshToken);
-    const user = db.findUserById(decoded.userId);
+    const user = await repo.users.findOne({ id: decoded.userId });
     if (!user || !user.is_active) {
       return sendError(res, 'User not active', 401, 'UNAUTHORIZED');
     }
 
-    const institute = db.institutes.find((i) => i.id === user.institute_id);
+    const institute = await repo.institutes.findOne({ id: user.institute_id });
     const permissions = ROLE_PERMISSIONS[user.role] || [];
 
     const userPayload = {
@@ -128,22 +299,24 @@ router.post('/refresh', (req, res) => {
 });
 
 // Get Current Profile
-router.get('/me', authenticateJWT, (req: AuthenticatedRequest, res) => {
+router.get('/me', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   if (!req.user) return sendError(res, 'Unauthorized', 401);
-  const user = db.findUserById(req.user.id);
+  const user = await repo.users.findOne({ id: req.user.id });
   if (!user) return sendError(res, 'User not found', 404);
 
-  const institute = db.institutes.find((i) => i.id === user.institute_id);
-  
+  const institute = await repo.institutes.findOne({ id: user.institute_id });
+
   // Extra role-specific entity
   let profileDetails = {};
   if (user.role === 'student') {
-    profileDetails = { student: db.findStudentByUserId(user.id) };
+    profileDetails = { student: await repo.students.findOne({ user_id: user.id }) };
   } else if (user.role === 'teacher') {
-    profileDetails = { teacher: db.findTeacherByUserId(user.id) };
+    profileDetails = { teacher: await repo.teachers.findOne({ user_id: user.id }) };
   } else if (user.role === 'parent') {
-    const parent = db.findParentByUserId(user.id);
-    const children = parent ? db.getChildrenForParent(parent.id) : [];
+    const parent = await repo.parents.findOne({ user_id: user.id });
+    const links = parent ? await repo.parentStudentLinks.find({ parent_id: parent.id }) : [];
+    const childIds = links.map((l) => l.student_id);
+    const children = childIds.length > 0 ? await repo.students.find({ id: { $in: childIds } }) : [];
     profileDetails = { parent, children };
   }
 
@@ -174,23 +347,40 @@ router.post('/reset-password', async (req, res) => {
     return sendError(res, val.reason || 'Weak password', 400, 'WEAK_PASSWORD');
   }
 
-  const user = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase() && !u.is_deleted);
+  const user = await repo.users.findOne({ email: email.toLowerCase() });
   if (!user) {
     return sendError(res, 'User with provided email not found', 404);
   }
 
-  user.password_hash = await hashPassword(newPassword);
-  user.updated_at = new Date().toISOString();
+  await repo.users.updateOne({ id: user.id }, { password_hash: await hashPassword(newPassword) });
 
-  db.logAudit(user.institute_id, user.id, user.full_name, user.role, 'PASSWORD_RESET', 'AUTH', user.id, req.ip);
+  await repo.auditLogs.insertOne({
+    institute_id: user.institute_id,
+    user_id: user.id,
+    user_name: user.full_name,
+    user_role: user.role,
+    action: 'PASSWORD_RESET',
+    target_resource: 'AUTH',
+    target_id: user.id,
+    ip_address: req.ip
+  });
 
   return sendSuccess(res, null, 'Password reset successfully. You can now log in.');
 });
 
 // Logout
-router.post('/logout', authenticateJWT, (req: AuthenticatedRequest, res) => {
+router.post('/logout', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   if (req.user) {
-    db.logAudit(req.user.institute_id, req.user.id, req.user.full_name, req.user.role, 'LOGOUT', 'AUTH', req.user.id, req.ip);
+    await repo.auditLogs.insertOne({
+      institute_id: req.user.institute_id,
+      user_id: req.user.id,
+      user_name: req.user.full_name,
+      user_role: req.user.role,
+      action: 'LOGOUT',
+      target_resource: 'AUTH',
+      target_id: req.user.id,
+      ip_address: req.ip
+    });
   }
   return sendSuccess(res, null, 'Logged out successfully');
 });

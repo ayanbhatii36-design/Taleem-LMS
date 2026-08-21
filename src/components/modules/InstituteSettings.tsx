@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Settings,
   Building2,
@@ -23,6 +23,10 @@ export const InstituteSettings: React.FC<InstituteSettingsProps> = ({
 }) => {
   const [formData, setFormData] = useState<InstituteInfo>(institute);
 
+  useEffect(() => {
+    setFormData(institute);
+  }, [institute]);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateInstitute(formData);
@@ -31,7 +35,7 @@ export const InstituteSettings: React.FC<InstituteSettingsProps> = ({
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Settings className="w-6 h-6 text-teal-600 dark:text-teal-400" />

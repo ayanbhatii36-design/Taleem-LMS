@@ -1,27 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Search, 
-  Bell, 
-  LifeBuoy, 
-  Activity, 
-  Sun, 
-  Moon, 
-  ShieldCheck, 
-  ChevronDown, 
-  User, 
-  Settings, 
-  LogOut, 
-  ShieldAlert, 
-  Building2, 
-  KeyRound, 
-  CheckCircle2, 
+import {
+  Search,
+  Bell,
+  LifeBuoy,
+  Activity,
+  Sun,
+  Moon,
+  ShieldCheck,
+  ChevronDown,
+  Settings,
+  LogOut,
+  ShieldAlert,
+  Building2,
   Sparkles,
   Command,
   Server,
-  Layers
+  Menu
 } from 'lucide-react';
-import { SuperAdminTeamMember, SupportTicket, SystemServiceStatus } from '../../types/superAdmin';
-import { INITIAL_SUPER_ADMIN } from '../../data/superAdminData';
+import { SuperAdminTeamMember, SupportTicket, SystemServiceStatus, SchoolTenant, PaymentTransaction } from '../types';
+import { INITIAL_SUPER_ADMIN } from '../data';
 
 interface SuperAdminTopNavProps {
   currentAdmin?: SuperAdminTeamMember;
@@ -31,11 +28,14 @@ interface SuperAdminTopNavProps {
   onOpenCommandPalette: () => void;
   supportTickets?: SupportTicket[];
   systemServices?: SystemServiceStatus[];
+  schools?: SchoolTenant[];
+  transactions?: PaymentTransaction[];
   onNavigateTab?: (tabId: string) => void;
   onOpenSettings?: () => void;
   onExitSuperAdmin?: () => void;
   onLogout?: () => void;
   onSwitchToSchoolDemo?: () => void;
+  onOpenMobileSidebar?: () => void;
 }
 
 export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
@@ -46,11 +46,14 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
   onOpenCommandPalette,
   supportTickets = [],
   systemServices = [],
+  schools = [],
+  transactions = [],
   onNavigateTab = (_tabId: string) => {},
   onOpenSettings,
   onExitSuperAdmin,
   onLogout = onExitSuperAdmin || (() => {}),
-  onSwitchToSchoolDemo
+  onSwitchToSchoolDemo,
+  onOpenMobileSidebar = () => {}
 }) => {
   const activeAdmin = currentAdmin || adminUser || INITIAL_SUPER_ADMIN;
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -81,12 +84,67 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
   const openTicketsCount = supportTickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
   const urgentTicketsCount = supportTickets.filter(t => t.priority === 'Urgent' || t.priority === 'High').length;
   const allServicesOperational = systemServices.every(s => s.status === 'Operational');
+  const avgUptime = systemServices.length > 0
+    ? systemServices.reduce((sum, s) => sum + (s.uptimePct || 0), 0) / systemServices.length
+    : 100;
+  const pendingSchools = schools.filter(s => s.status === 'Pending');
+  const failedPayments = transactions.filter(tx => tx.status === 'Failed');
+  const degradedServices = systemServices.filter(s => s.status !== 'Operational');
+  const alertCount = pendingSchools.length + openTicketsCount + failedPayments.length + degradedServices.length;
+
+  const notifications = [
+    ...pendingSchools.map(s => ({
+      id: `al-${s.id}`,
+      icon: Building2,
+      iconClass: 'text-amber-600 dark:text-amber-400',
+      title: `${s.name} awaiting approval`,
+      detail: `${s.city} • ${s.planName} ${s.billingCycle} plan • ${s.studentCount} students`
+    })),
+    ...(openTicketsCount > 0 ? [{
+      id: 'al-tickets',
+      icon: LifeBuoy,
+      iconClass: 'text-purple-600 dark:text-purple-400',
+      title: `${openTicketsCount} open support ticket${openTicketsCount === 1 ? '' : 's'}`,
+      detail: `${urgentTicketsCount > 0 ? `${urgentTicketsCount} urgent or high priority • ` : ''}resolve in the Support Desk`
+    }] : []),
+    ...failedPayments.map(tx => ({
+      id: `al-${tx.id}`,
+      icon: ShieldAlert,
+      iconClass: 'text-red-600 dark:text-red-400',
+      title: `Payment failed: PKR ${tx.netAmountPKR.toLocaleString()}`,
+      detail: `${tx.schoolName} • ${tx.invoiceNo} • ${tx.failureReason || tx.paymentMethod}`
+    })),
+    ...degradedServices.map(s => ({
+      id: `al-${s.name}`,
+      icon: Activity,
+      iconClass: 'text-amber-600 dark:text-amber-400',
+      title: `${s.name} is ${s.status.toLowerCase()}`,
+      detail: `${s.latencyMs}ms latency • ${s.description}`
+    }))
+  ];
+
+  const navigateTo = (tabId: string) => {
+    const normalized = tabId === 'system-health' ? 'status'
+      : tabId === 'support' ? 'tickets'
+      : tabId === 'audit-logs' ? 'audit'
+      : tabId;
+    onNavigateTab(normalized);
+  };
 
   return (
     <header className="h-16 border-b border-slate-200/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors">
       {/* Left: Brand + Environment Badge */}
-      <div className="flex items-center gap-3 md:gap-4">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2 md:gap-4 min-w-0">
+        {/* Mobile Sidebar Toggle */}
+        <button
+          onClick={onOpenMobileSidebar}
+          className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+          title="Open navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-700 via-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-teal-700/20 font-black text-base">
             TL
           </div>
@@ -106,12 +164,9 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
         </div>
 
         {/* Global Environment Indicator */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 shadow-xs">
+        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 shadow-xs shrink-0">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>PRODUCTION</span>
-          <span className="hidden lg:inline text-[9px] text-emerald-600/80 font-mono pl-1">
-            (PK-CLUSTER-01)
-          </span>
         </div>
       </div>
 
@@ -151,19 +206,23 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
           >
             <Activity className={`w-4 h-4 ${allServicesOperational ? 'text-emerald-500' : 'text-amber-500 animate-pulse'}`} />
             <span className="hidden xl:inline text-[11px] text-slate-600 dark:text-slate-300">
-              99.98%
+              {avgUptime.toFixed(2)}%
             </span>
           </button>
 
           {isHealthMenuOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-3.5 z-50 animate-in fade-in-50 zoom-in-95">
+            <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-3.5 z-50 animate-in fade-in-50 zoom-in-95">
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <Server className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   <span className="text-xs font-bold text-slate-900 dark:text-white">Platform System Health</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  All Green
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  allServicesOperational
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                }`}>
+                  {allServicesOperational ? 'All Green' : `${degradedServices.length} Service Alert${degradedServices.length === 1 ? '' : 's'}`}
                 </span>
               </div>
 
@@ -171,8 +230,10 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
                 {systemServices.slice(0, 5).map((srv, idx) => (
                   <div key={idx} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60">
                     <span className="truncate text-slate-700 dark:text-slate-300 font-medium pr-2">{srv.name}</span>
-                    <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                      {srv.latencyMs}ms
+                    <span className={`font-mono text-[10px] font-bold shrink-0 ${
+                      srv.status === 'Operational' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                    }`}>
+                      {srv.uptimePct}% · {srv.latencyMs}ms
                     </span>
                   </div>
                 ))}
@@ -181,11 +242,11 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
               <button
                 onClick={() => {
                   setIsHealthMenuOpen(false);
-                  onNavigateTab('system-health');
+                  navigateTo('system-health');
                 }}
                 className="w-full mt-2 py-1.5 text-center text-xs font-bold text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 rounded-xl transition-colors"
               >
-                Inspect All 8 Services & Logs →
+                Inspect All {systemServices.length} Services & Logs →
               </button>
             </div>
           )}
@@ -193,7 +254,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
 
         {/* Support Alert Quick Badge */}
         <button
-          onClick={() => onNavigateTab('support')}
+          onClick={() => navigateTo('support')}
           className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
           title={`${openTicketsCount} Open Support Tickets`}
         >
@@ -213,62 +274,53 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
             title="Super Admin Notifications"
           >
             <Bell className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-teal-500" />
+            {alertCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 px-1 py-0.5 rounded-full bg-teal-500 text-white text-[8px] font-bold leading-none">
+                {alertCount}
+              </span>
+            )}
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in-50 zoom-in-95">
+            <div className="absolute right-0 mt-2 w-80 md:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in-50 zoom-in-95">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span>Platform Broadcasts & Alerts</span>
                   <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-bold">
-                    3 New
+                    {alertCount} New
                   </span>
                 </h4>
-                <button 
-                  onClick={() => onNavigateTab('announcements')}
-                  className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold hover:underline"
-                >
-                  Manage
-                </button>
               </div>
 
               <div className="py-2 divide-y divide-slate-100 dark:divide-slate-800 max-h-64 overflow-y-auto text-xs space-y-1">
-                <div className="py-2.5">
-                  <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      PKR 1,020,000 Annual Fee Settled
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">Today</span>
+                {notifications.length === 0 && (
+                  <div className="py-4 text-center text-slate-400 text-xs">
+                    No pending alerts. All systems operational.
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Beaconhouse School System renewed Enterprise Annual Plan via Meezan Direct Bank Transfer.
-                  </p>
-                </div>
-
-                <div className="py-2.5">
-                  <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
-                    <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      Quetta Model Academy Trial Nearing Expiry
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">Yesterday</span>
+                )}
+                {notifications.map((n) => (
+                  <div key={n.id} className="py-2.5">
+                    <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
+                      <span className={`flex items-center gap-1.5 ${n.iconClass}`}>
+                        <n.icon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{n.title}</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      {n.detail}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Principal requested 14-day trial extension for Board meeting approval.
-                  </p>
-                </div>
+                ))}
               </div>
 
               <button
                 onClick={() => {
                   setIsNotificationsOpen(false);
-                  onNavigateTab('audit-logs');
+                  navigateTo('audit');
                 }}
                 className="w-full mt-2 py-2 text-center text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
-                View Full Audit Logs Trail →
+                View Audit Logs Trail →
               </button>
             </div>
           )}
@@ -309,7 +361,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-50 animate-in fade-in-50 zoom-in-95">
+            <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-50 animate-in fade-in-50 zoom-in-95">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl mb-1.5">
                 <p className="text-xs font-bold text-slate-900 dark:text-white">{activeAdmin.name}</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{activeAdmin.email}</p>
@@ -325,22 +377,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
                 <button
                   onClick={() => {
                     setIsProfileOpen(false);
-                    onNavigateTab('team');
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-left transition-colors"
-                >
-                  <User className="w-4 h-4 text-slate-400" />
-                  <span>My Profile & Team</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    if (onOpenSettings) {
-                      onOpenSettings();
-                    } else {
-                      onNavigateTab('settings');
-                    }
+                    navigateTo('settings');
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-left transition-colors"
                 >
@@ -351,7 +388,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
                 <button
                   onClick={() => {
                     setIsProfileOpen(false);
-                    onNavigateTab('audit-logs');
+                    navigateTo('audit');
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-left transition-colors"
                 >
@@ -368,7 +405,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 font-semibold text-left transition-colors"
                   >
                     <Building2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                    <span>Switch to School Portal Demo</span>
+                    <span>Open School Portal (Main Domain)</span>
                   </button>
                 )}
 

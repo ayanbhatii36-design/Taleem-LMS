@@ -16,7 +16,7 @@ import {
 import { Teacher, ClassItem, Assignment, Exam, TimetableSlot } from '../../types';
 
 interface TeacherDashboardProps {
-  teacher: Teacher;
+  teacher?: Teacher;
   classes: ClassItem[];
   assignments: Assignment[];
   exams: Exam[];
@@ -36,7 +36,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onOpenTakeAttendance,
   onOpenCreateAssignment
 }) => {
-  const teacherSlots = timetable.filter((t) => t.day === 'Monday' || t.day === 'Tuesday').slice(0, 4);
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as TimetableSlot['day'];
+  const teacherSlots = timetable.filter((t) => t.day === today).slice(0, 4);
+
+  if (!teacher) {
+    return (
+      <div className="p-10 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
+        No teacher profile found in the database. Ask the administrator to add your faculty record.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../../db/database';
+import { repo } from '../../db/repository';
 import { sendSuccess, sendError } from '../../utils/response';
 import { authenticateJWT, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { requirePermission } from '../../middleware/rbac.middleware';
@@ -8,29 +8,32 @@ import { Institute } from '../../types/backend';
 const router = Router();
 
 // List Institutes (Super admin only or current institute)
-router.get('/', authenticateJWT, (req: AuthenticatedRequest, res) => {
+router.get('/', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   if (req.user?.role === 'super_admin') {
-    return sendSuccess(res, db.institutes, 'Institutes retrieved');
+    const institutes = await repo.institutes.find({});
+    return sendSuccess(res, institutes, 'Institutes retrieved');
   }
-  const institute = db.institutes.find((i) => i.id === req.institute_id);
+  const institute = await repo.institutes.findOne({ id: req.institute_id });
   return sendSuccess(res, institute ? [institute] : [], 'Institute retrieved');
 });
 
 // Get Institute Details
-router.get('/:id', authenticateJWT, (req: AuthenticatedRequest, res) => {
-  const institute = db.institutes.find((i) => i.id === req.params.id);
+router.get('/:id', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const institute = await repo.institutes.findOne({ id: req.params.id });
   if (!institute) return sendError(res, 'Institute not found', 404);
   return sendSuccess(res, institute);
 });
 
 // Create Institute (Super admin)
-router.post('/', authenticateJWT, requirePermission('institute.create'), (req: AuthenticatedRequest, res) => {
+router.post('/', authenticateJWT, requirePermission('institute.create'), async (req: AuthenticatedRequest, res) => {
   const { name, code, phone, email, address, city, province, grading_scheme_type } = req.body;
   if (!name || !code) {
     return sendError(res, 'Name and code are required', 400);
   }
 
-  const existing = db.institutes.find((i) => i.code.toLowerCase() === code.toLowerCase());
+  const existing = await repo.institutes.findOne({
+    code: { $regex: `^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+  });
   if (existing) {
     return sendError(res, 'Institute code already exists', 400);
   }
@@ -52,22 +55,16 @@ router.post('/', authenticateJWT, requirePermission('institute.create'), (req: A
     updated_at: new Date().toISOString()
   };
 
-  db.institutes.push(newInstitute);
-  return sendSuccess(res, newInstitute, 'Institute created successfully', 201);
+  const created = await repo.institutes.insertOne(newInstitute);
+  return sendSuccess(res, created, 'Institute created successfully', 201);
 });
 
 // Update Institute / Branding Configuration
-router.put('/:id', authenticateJWT, requirePermission('institute.edit'), (req: AuthenticatedRequest, res) => {
-  const instIndex = db.institutes.findIndex((i) => i.id === req.params.id);
-  if (instIndex === -1) return sendError(res, 'Institute not found', 404);
+router.put('/:id', authenticateJWT, requirePermission('institute.edit'), async (req: AuthenticatedRequest, res) => {
+  const existing = await repo.institutes.findOne({ id: req.params.id });
+  if (!existing) return sendError(res, 'Institute not found', 404);
 
-  const updated: Institute = {
-    ...db.institutes[instIndex],
-    ...req.body,
-    updated_at: new Date().toISOString()
-  };
-
-  db.institutes[instIndex] = updated;
+  const updated = await repo.institutes.updateOne({ id: req.params.id }, req.body);
   return sendSuccess(res, updated, 'Institute configuration updated');
 });
 

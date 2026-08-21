@@ -12,7 +12,7 @@ import {
   Download,
   FileSpreadsheet
 } from 'lucide-react';
-import { AuditLog, AuditSeverity } from '../../types/superAdmin';
+import { AuditLog, AuditSeverity } from '../types';
 
 interface AuditLogsViewProps {
   auditLogs: AuditLog[];
@@ -22,6 +22,14 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ auditLogs }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  const severityOptions = useMemo(() => {
+    return Array.from(new Set(auditLogs.map(l => l.severity))).sort();
+  }, [auditLogs]);
+
+  const categoryOptions = useMemo(() => {
+    return Array.from(new Set(auditLogs.map(l => l.category))).sort();
+  }, [auditLogs]);
 
   const filteredLogs = useMemo(() => {
     return auditLogs.filter(log => {
@@ -111,10 +119,9 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ auditLogs }) => {
               className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
               <option value="All">All Severities</option>
-              <option value="info">Info</option>
-              <option value="warning">Warning</option>
-              <option value="critical">Critical</option>
-              <option value="success">Success</option>
+              {severityOptions.map(sev => (
+                <option key={sev} value={sev}>{sev}</option>
+              ))}
             </select>
           </div>
 
@@ -127,11 +134,9 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ auditLogs }) => {
               className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
               <option value="All">All Categories</option>
-              <option value="Impersonation">Impersonation</option>
-              <option value="Billing">Billing & Plan</option>
-              <option value="Tenant Management">Tenant Management</option>
-              <option value="Security">Security & Access</option>
-              <option value="System">System & Infrastructure</option>
+              {categoryOptions.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
           </div>
         </div>

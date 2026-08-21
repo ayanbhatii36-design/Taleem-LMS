@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../../db/database';
+import { repo } from '../../db/repository';
 import { sendSuccess, sendError } from '../../utils/response';
 import { authenticateJWT, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { enforceTenantIsolation } from '../../middleware/tenant.middleware';
@@ -9,21 +9,19 @@ const router = Router();
 router.use(authenticateJWT, enforceTenantIsolation);
 
 // --- ACADEMIC YEARS ---
-router.get('/years', (req: AuthenticatedRequest, res) => {
-  const years = db.academicYears.filter((ay) => ay.institute_id === req.institute_id);
+router.get('/years', async (req: AuthenticatedRequest, res) => {
+  const years = await repo.academicYears.find({ institute_id: req.institute_id });
   return sendSuccess(res, years);
 });
 
-router.post('/years', requirePermission('academics.manage'), (req: AuthenticatedRequest, res) => {
+router.post('/years', requirePermission('academics.manage'), async (req: AuthenticatedRequest, res) => {
   const { name, start_date, end_date, is_current } = req.body;
   if (!name || !start_date || !end_date) {
     return sendError(res, 'Name, start_date, and end_date are required', 400);
   }
 
   if (is_current) {
-    db.academicYears.forEach((ay) => {
-      if (ay.institute_id === req.institute_id) ay.is_current = false;
-    });
+    await repo.academicYears.updateMany({ institute_id: req.institute_id }, { is_current: false });
   }
 
   const newAy = {
@@ -37,17 +35,17 @@ router.post('/years', requirePermission('academics.manage'), (req: Authenticated
     updated_at: new Date().toISOString()
   };
 
-  db.academicYears.push(newAy);
-  return sendSuccess(res, newAy, 'Academic year created', 201);
+  const created = await repo.academicYears.insertOne(newAy);
+  return sendSuccess(res, created, 'Academic year created', 201);
 });
 
 // --- TERMS ---
-router.get('/terms', (req: AuthenticatedRequest, res) => {
-  const terms = db.terms.filter((t) => t.institute_id === req.institute_id);
+router.get('/terms', async (req: AuthenticatedRequest, res) => {
+  const terms = await repo.terms.find({ institute_id: req.institute_id });
   return sendSuccess(res, terms);
 });
 
-router.post('/terms', requirePermission('academics.manage'), (req: AuthenticatedRequest, res) => {
+router.post('/terms', requirePermission('academics.manage'), async (req: AuthenticatedRequest, res) => {
   const { academic_year_id, name, start_date, end_date } = req.body;
   if (!academic_year_id || !name) {
     return sendError(res, 'academic_year_id and name required', 400);
@@ -65,14 +63,14 @@ router.post('/terms', requirePermission('academics.manage'), (req: Authenticated
     updated_at: new Date().toISOString()
   };
 
-  db.terms.push(newTerm);
-  return sendSuccess(res, newTerm, 'Academic term created', 201);
+  const created = await repo.terms.insertOne(newTerm);
+  return sendSuccess(res, created, 'Academic term created', 201);
 });
 
 // --- CLASSES & SECTIONS ---
-router.get('/classes', (req: AuthenticatedRequest, res) => {
-  const classes = db.classes.filter((c) => c.institute_id === req.institute_id);
-  const sections = db.sections.filter((s) => s.institute_id === req.institute_id);
+router.get('/classes', async (req: AuthenticatedRequest, res) => {
+  const classes = await repo.classes.find({ institute_id: req.institute_id });
+  const sections = await repo.sections.find({ institute_id: req.institute_id });
 
   const populated = classes.map((cls) => ({
     ...cls,
@@ -82,7 +80,7 @@ router.get('/classes', (req: AuthenticatedRequest, res) => {
   return sendSuccess(res, populated);
 });
 
-router.post('/classes', requirePermission('academics.manage'), (req: AuthenticatedRequest, res) => {
+router.post('/classes', requirePermission('academics.manage'), async (req: AuthenticatedRequest, res) => {
   const { name, code, level_order } = req.body;
   if (!name || !code) return sendError(res, 'Name and code required', 400);
 
@@ -96,11 +94,11 @@ router.post('/classes', requirePermission('academics.manage'), (req: Authenticat
     updated_at: new Date().toISOString()
   };
 
-  db.classes.push(newClass);
-  return sendSuccess(res, newClass, 'Class created', 201);
+  const created = await repo.classes.insertOne(newClass);
+  return sendSuccess(res, created, 'Class created', 201);
 });
 
-router.post('/sections', requirePermission('academics.manage'), (req: AuthenticatedRequest, res) => {
+router.post('/sections', requirePermission('academics.manage'), async (req: AuthenticatedRequest, res) => {
   const { class_id, name, capacity, class_teacher_id } = req.body;
   if (!class_id || !name) return sendError(res, 'class_id and name required', 400);
 
@@ -115,17 +113,17 @@ router.post('/sections', requirePermission('academics.manage'), (req: Authentica
     updated_at: new Date().toISOString()
   };
 
-  db.sections.push(newSection);
-  return sendSuccess(res, newSection, 'Section created', 201);
+  const created = await repo.sections.insertOne(newSection);
+  return sendSuccess(res, created, 'Section created', 201);
 });
 
 // --- SUBJECTS & COURSES ---
-router.get('/subjects', (req: AuthenticatedRequest, res) => {
-  const subjects = db.subjects.filter((s) => s.institute_id === req.institute_id);
+router.get('/subjects', async (req: AuthenticatedRequest, res) => {
+  const subjects = await repo.subjects.find({ institute_id: req.institute_id });
   return sendSuccess(res, subjects);
 });
 
-router.post('/subjects', requirePermission('academics.manage'), (req: AuthenticatedRequest, res) => {
+router.post('/subjects', requirePermission('academics.manage'), async (req: AuthenticatedRequest, res) => {
   const { name, code, type, credit_hours } = req.body;
   if (!name || !code) return sendError(res, 'Name and code required', 400);
 
@@ -140,12 +138,12 @@ router.post('/subjects', requirePermission('academics.manage'), (req: Authentica
     updated_at: new Date().toISOString()
   };
 
-  db.subjects.push(newSubject);
-  return sendSuccess(res, newSubject, 'Subject created', 201);
+  const created = await repo.subjects.insertOne(newSubject);
+  return sendSuccess(res, created, 'Subject created', 201);
 });
 
-router.get('/courses', (req: AuthenticatedRequest, res) => {
-  const courses = db.courses.filter((c) => c.institute_id === req.institute_id);
+router.get('/courses', async (req: AuthenticatedRequest, res) => {
+  const courses = await repo.courses.find({ institute_id: req.institute_id });
   return sendSuccess(res, courses);
 });
 

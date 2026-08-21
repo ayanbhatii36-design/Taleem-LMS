@@ -33,7 +33,7 @@ import {
   SupportTicket, 
   AuditLog, 
   GlobalUser 
-} from '../../types/superAdmin';
+} from '../types';
 
 interface SchoolDetailsViewProps {
   school: SchoolTenant;
@@ -74,10 +74,14 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
   const storageUsagePct = Math.round((school.storageUsedGB / school.storageLimitGB) * 100);
   const courseUsagePct = Math.round((school.coursesCount / school.maxCourses) * 100);
 
+  const annualDiscountPct = school.monthlyFeePKR > 0
+    ? Math.round((1 - school.annualFeePKR / (school.monthlyFeePKR * 12)) * 100)
+    : 0;
+
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-200">
       {/* Back Button & Top Action Strip */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer"
@@ -168,7 +172,7 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-right min-w-[180px]">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-right w-full md:w-auto md:min-w-0">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Current Subscription
             </div>
@@ -190,7 +194,7 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
             { id: 'overview' as DetailTab, label: 'Overview & Usage', icon: Building2 },
             { id: 'subscription' as DetailTab, label: 'Subscription & Tier', icon: Layers },
             { id: 'billing' as DetailTab, label: `Invoices & Billing (${schoolTransactions.length})`, icon: CreditCard },
-            { id: 'users' as DetailTab, label: `Users & Staff (${schoolUsers.length || 5})`, icon: Users },
+            { id: 'users' as DetailTab, label: `Users & Staff (${schoolUsers.length})`, icon: Users },
             { id: 'academics' as DetailTab, label: 'Academic & LMS Config', icon: BookOpen },
             { id: 'tickets' as DetailTab, label: `Support Tickets (${schoolTickets.length})`, icon: LifeBuoy },
             { id: 'audit' as DetailTab, label: 'Audit Trail', icon: Activity }
@@ -376,7 +380,7 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
       {/* Tab 2: Subscription & Tier */}
       {activeTab === 'subscription' && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Subscription Tier & Entitlements
@@ -398,7 +402,9 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
               <div className="text-[10px] font-bold text-slate-400 uppercase">Plan Name</div>
               <div className="text-xl font-black text-teal-800 dark:text-teal-300 mt-1">{school.planName}</div>
-              <div className="text-xs text-slate-500 mt-1">Billing: {school.billingCycle === 'annual' ? 'Annual (10% Discount)' : 'Monthly'}</div>
+              <div className="text-xs text-slate-500 mt-1">
+                Billing: {school.billingCycle === 'annual' ? (annualDiscountPct > 0 ? `Annual (${annualDiscountPct}% Discount)` : 'Annual') : 'Monthly'}
+              </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
@@ -489,6 +495,82 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
         </div>
       )}
 
+      {/* Tab 4: Users & Staff */}
+      {activeTab === 'users' && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Users & Staff
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Registered accounts for {school.name}
+            </p>
+          </div>
+          {schoolUsers.length === 0 ? (
+            <p className="py-8 text-center text-slate-400 text-xs">
+              No users registered for this campus yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase">
+                  <tr>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Role</th>
+                    <th className="py-3 px-4">Email</th>
+                    <th className="py-3 px-4">Phone</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Last Active</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {schoolUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">{u.name}</td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{u.role}</td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-teal-700 dark:text-teal-300">{u.email}</td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{u.phone}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          u.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                            : u.status === 'Suspended'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                        }`}>
+                          {u.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-500">{u.lastActive}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 5: Academic & LMS Config */}
+      {activeTab === 'academics' && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Academic & LMS Configuration
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Academic structure, classes, sections, and LMS layout for {school.name}
+            </p>
+          </div>
+          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-200 dark:border-slate-700 text-center">
+            <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-40 text-teal-600" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Academic structure will appear here once connected.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Tab 6: Support Tickets */}
       {activeTab === 'tickets' && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-4">
@@ -500,7 +582,7 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
               <p className="py-8 text-center text-slate-400">No support tickets submitted by this campus.</p>
             ) : (
               schoolTickets.map((tkt) => (
-                <div key={tkt.id} className="py-3 flex items-center justify-between">
+                <div key={tkt.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <span className="font-mono text-purple-600">{tkt.ticketNumber}</span>
@@ -517,6 +599,64 @@ export const SchoolDetailsView: React.FC<SchoolDetailsViewProps> = ({
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tab 7: Audit Trail */}
+      {activeTab === 'audit' && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Audit Trail
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Security and administration events for {school.name}
+            </p>
+          </div>
+          {schoolAuditLogs.length === 0 ? (
+            <p className="py-8 text-center text-slate-400 text-xs">
+              No audit events recorded for this campus yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase">
+                  <tr>
+                    <th className="py-3 px-4">Timestamp</th>
+                    <th className="py-3 px-4">Actor</th>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4">Severity</th>
+                    <th className="py-3 px-4">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {schoolAuditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{log.timestamp}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">{log.actor}</td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{log.action}</td>
+                      <td className="py-3 px-4 text-slate-500">{log.category}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          log.severity === 'danger' || log.severity === 'critical'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                            : log.severity === 'warning'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            : log.severity === 'success'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                        }`}>
+                          {log.severity}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs">{log.details}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole, Student, Teacher, Course, Assignment, Exam, GradeRecord, TimetableSlot, FeeInvoice, Announcement, Message, InstituteInfo, ChildInfo } from './types';
+import { UserRole, Student, Teacher, ClassItem, Course, Assignment, Exam, GradeRecord, TimetableSlot, FeeInvoice, Announcement, Message, InstituteInfo, ChildInfo } from './types';
+import { initialInstitute } from './data/mockData';
+
+// Backend API layer
+import { AuthUser, clearSession, getStoredUser } from './api/client';
+import { authApi } from './api/auth';
 import {
-  initialInstitute,
-  sampleUsers,
-  sampleStudents,
-  sampleTeachers,
-  sampleClasses,
-  sampleCourses,
-  sampleAssignments,
-  sampleExams,
-  sampleGradeRecords as sampleGrades,
-  sampleTimetable,
-  sampleFeeInvoices,
-  sampleAnnouncements,
-  sampleMessages,
-  sampleChildrenInfo as sampleChildren
-} from './data/mockData';
+  studentsApi, teachersApi, feesApi, lmsApi, examsApi,
+  timetableApi, communicationApi, academicsApi
+} from './api/services';
+import {
+  mapStudent, mapTeacher, mapInvoice, mapAssignment, mapExam,
+  mapTimetableSlot, mapAnnouncement, mapMessage, mapList
+} from './api/mappers';
 
 // Layout & Common Components
 import { Header } from './components/common/Header';
@@ -43,17 +40,30 @@ import { InstituteSettings } from './components/modules/InstituteSettings';
 
 // Auth Components
 import { LandingPage } from './components/auth/LandingPage';
-import { LoginModal } from './components/auth/LoginModal';
+import { AuthPage } from './components/auth/AuthPage';
 import { OnboardingModal } from './components/auth/OnboardingModal';
 
 // SaaS Super Admin Master Module
-import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
-import { ImpersonationBanner } from './components/superadmin/ImpersonationBanner';
-import { SchoolTenant } from './types/superAdmin';
+import { SuperAdminDashboard } from './superadmin/components/SuperAdminDashboard';
+import { ImpersonationBanner } from './superadmin/components/ImpersonationBanner';
+import { SchoolTenant } from './superadmin/types';
 
 export default function App() {
-  // SaaS Platform vs School View State
-  const [viewMode, setViewMode] = useState<'super-admin' | 'school'>('super-admin');
+  // Route separation: /admin (Super Admin domain) vs / (School portal domain)
+  const [currentPath, setCurrentPath] = useState<string>(window.location.pathname);
+
+  useEffect(() => {
+    const onPopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  const isSuperAdminRoute = currentPath.startsWith('/admin');
   const [activeImpersonation, setActiveImpersonation] = useState<{
     role: string;
     name: string;
@@ -73,24 +83,26 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
-  const [showLandingPage, setShowLandingPage] = useState<boolean>(false);
-  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [authView, setAuthView] = useState<{ role: UserRole; mode: 'signin' | 'signup' } | null>(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+  const [backendUser, setBackendUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [dataSynced, setDataSynced] = useState<boolean>(false);
 
-  // Data state
+  // Data state — hydrated from the backend (MongoDB) after login
   const [institute, setInstitute] = useState<InstituteInfo>(initialInstitute);
-  const [students, setStudents] = useState<Student[]>(sampleStudents);
-  const [teachers, setTeachers] = useState<Teacher[]>(sampleTeachers);
-  const [classes] = useState(sampleClasses);
-  const [courses, setCourses] = useState<Course[]>(sampleCourses);
-  const [assignments, setAssignments] = useState<Assignment[]>(sampleAssignments);
-  const [exams, setExams] = useState<Exam[]>(sampleExams);
-  const [grades] = useState<GradeRecord[]>(sampleGrades);
-  const [timetable] = useState<TimetableSlot[]>(sampleTimetable);
-  const [feeInvoices, setFeeInvoices] = useState<FeeInvoice[]>(sampleFeeInvoices);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(sampleAnnouncements);
-  const [messages, setMessages] = useState<Message[]>(sampleMessages);
-  const [childrenList] = useState<ChildInfo[]>(sampleChildren);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [grades, setGrades] = useState<GradeRecord[]>([]);
+  const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
+  const [feeInvoices, setFeeInvoices] = useState<FeeInvoice[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [childrenList, setChildrenList] = useState<ChildInfo[]>([]);
 
   // Sync dark mode class with html / body element and persist preference
   useEffect(() => {
@@ -106,13 +118,201 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Current user based on role
-  const currentUser = sampleUsers[currentRole];
+  // Current user (authenticated backend identity, or a neutral guest for demo mode)
+  const currentUser = backendUser
+    ? {
+        id: backendUser.id,
+        name: backendUser.full_name,
+        email: backendUser.email,
+        phone: backendUser.phone,
+        role: currentRole,
+        instituteName: backendUser.institute_name || institute.name
+      }
+    : {
+        id: 'guest',
+        name: 'Guest (Demo Mode)',
+        email: '',
+        phone: '',
+        role: currentRole,
+        instituteName: institute.name
+      };
+
+  // ------------------------------------------------------ Backend data sync
+  // When authenticated, hydrate app state from the backend API (MongoDB).
+  useEffect(() => {
+    if (!backendUser || dataSynced) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const [studentsRes, teachersRes, invoicesRes, assignmentsRes, examsRes, timetableRes, announcementsRes, messagesRes, coursesRes, classesRes, gradesRes, meRes] =
+          await Promise.allSettled([
+            studentsApi.list(),
+            teachersApi.list(),
+            feesApi.invoices(),
+            lmsApi.assignments(),
+            examsApi.list(),
+            timetableApi.list(),
+            communicationApi.announcements(),
+            communicationApi.messages(),
+            academicsApi.courses(),
+            academicsApi.classes(),
+            examsApi.grades(),
+            authApi.me()
+          ]);
+
+        if (cancelled) return;
+
+        if (studentsRes.status === 'fulfilled') setStudents(mapList(studentsRes.value, mapStudent));
+        if (teachersRes.status === 'fulfilled') setTeachers(mapList(teachersRes.value, mapTeacher));
+        if (invoicesRes.status === 'fulfilled') setFeeInvoices(mapList(invoicesRes.value, mapInvoice));
+        if (assignmentsRes.status === 'fulfilled') setAssignments(mapList(assignmentsRes.value, mapAssignment));
+        if (examsRes.status === 'fulfilled') setExams(mapList(examsRes.value, mapExam));
+        if (timetableRes.status === 'fulfilled') setTimetable(mapList(timetableRes.value, mapTimetableSlot));
+        if (announcementsRes.status === 'fulfilled') setAnnouncements(mapList(announcementsRes.value, mapAnnouncement));
+        if (messagesRes.status === 'fulfilled') setMessages(mapList(messagesRes.value, mapMessage));
+        if (coursesRes.status === 'fulfilled') {
+          const backendCourses = coursesRes.value;
+          if (backendCourses.length > 0) {
+            setCourses(
+              backendCourses.map((c) => ({
+                id: c.id,
+                code: c.code || c.id,
+                title: c.title || 'Course',
+                instructor: c.teacher_name || 'Faculty Member',
+                className: c.class_name || '',
+                section: c.section_name || '',
+                progress: 0,
+                description: c.description || '',
+                modulesCount: 0,
+                enrolledStudents: 0,
+                coverImage: c.thumbnail_url || 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=500&auto=format&fit=crop&q=80',
+                modules: []
+              }))
+            );
+          }
+        }
+        if (classesRes.status === 'fulfilled') {
+          const backendClasses = classesRes.value;
+          if (backendClasses.length > 0) {
+            setClasses(
+              backendClasses.map((c) => ({
+                id: c.id,
+                name: c.name || '',
+                section: 'A',
+                classTeacher: '',
+                studentCount: 0,
+                subjectsCount: 0,
+                attendancePct: 0,
+                gpaAverage: 0,
+                department: '',
+                subjects: []
+              }))
+            );
+            setClasses((prev) =>
+              prev.map((cls) => ({
+                ...cls,
+                studentCount: students.filter((s) => s.className === cls.name).length
+              }))
+            );
+          }
+        }
+        if (gradesRes.status === 'fulfilled') {
+          const backendGrades = gradesRes.value;
+          if (backendGrades.length > 0) {
+            setGrades(
+              backendGrades.map((g) => ({
+                id: g.id,
+                studentId: g.student_id,
+                studentName: g.student_name || '',
+                rollNo: g.roll_no || '',
+                className: g.class_name || '',
+                subject: g.subject_name || '',
+                examTitle: g.exam_title || '',
+                marksObtained: g.marks_obtained ?? 0,
+                totalMarks: g.total_marks ?? 100,
+                percentage: g.total_marks ? Math.round(((g.marks_obtained ?? 0) / g.total_marks) * 100) : 0,
+                gradeLetter: g.grade_letter || '',
+                remarks: g.remarks || '',
+                date: g.created_at || ''
+              }))
+            );
+          }
+        }
+        if (meRes.status === 'fulfilled' && meRes.value.profileDetails?.parent) {
+          const children = (meRes.value.profileDetails as any).children as any[] | undefined;
+          if (children && children.length > 0) {
+            setChildrenList(
+              children.map((c) => ({
+                id: c.id,
+                name: c.full_name,
+                rollNo: c.roll_no,
+                className: c.class_name || '',
+                section: c.section_name || '',
+                gpa: 0,
+                attendancePct: 0,
+                feeStatus: 'Paid' as const,
+                pendingAmountPKR: 0,
+                avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+                recentGrades: [],
+                alerts: [],
+                teacherContacts: []
+              }))
+            );
+          }
+        }
+        if (meRes.status === 'fulfilled' && meRes.value.institute) {
+          const inst = meRes.value.institute;
+          setInstitute((prev) => ({
+            ...prev,
+            name: inst.name || prev.name,
+            address: inst.address || prev.address,
+            city: inst.city || prev.city,
+            phone: inst.phone || prev.phone,
+            email: inst.email || prev.email
+          }));
+        }
+        if (announcementsRes.status === 'fulfilled' || invoicesRes.status === 'fulfilled') {
+          setDataSynced(true);
+        }
+      } catch {
+        // API unavailable — the app stays in an honest empty state
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendUser, dataSynced]);
 
   // Actions
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
     setActiveTab('dashboard');
+  };
+
+  const handleLoginSuccess = (role: UserRole, user?: AuthUser) => {
+    if (user) {
+      setBackendUser(user);
+      setDataSynced(false);
+      const backendRole = (user.role as string) as UserRole;
+      const mappedRole =
+        backendRole === 'teacher' || backendRole === 'student' || backendRole === 'parent'
+          ? backendRole
+          : 'principal';
+      setCurrentRole(mappedRole);
+    } else {
+      setCurrentRole(role);
+    }
+    setActiveTab('dashboard');
+    setShowLandingPage(false);
+    setAuthView(null);
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setBackendUser(null);
+    setDataSynced(false);
   };
 
   const handleAddStudent = (newStudentData: Partial<Student>) => {
@@ -137,6 +337,23 @@ export default function App() {
       subjects: ['Physics', 'Chemistry', 'Mathematics', 'English', 'Urdu']
     };
     setStudents([newStudent, ...students]);
+    if (backendUser) {
+      studentsApi
+        .create({
+          full_name: newStudent.name,
+          roll_no: newStudent.rollNo,
+          guardian_name: newStudent.guardianName,
+          guardian_phone: newStudent.phone,
+          gender: 'MALE',
+          dob: '2009-01-01',
+          cnic_bform: newStudent.cnicBForm,
+          class_id: '',
+          section_id: '',
+          academic_year_id: '',
+          address: newStudent.address
+        })
+        .catch(() => {});
+    }
   };
 
   const handleEditStudent = (updatedStudent: Student) => {
@@ -145,6 +362,7 @@ export default function App() {
 
   const handleDeleteStudent = (id: string) => {
     setStudents(students.filter((s) => s.id !== id));
+    if (backendUser) studentsApi.remove(id).catch(() => {});
   };
 
   const handleAddTeacher = (newTeacherData: Partial<Teacher>) => {
@@ -165,10 +383,21 @@ export default function App() {
       status: 'Active'
     };
     setTeachers([newTeacher, ...teachers]);
+    if (backendUser) {
+      teachersApi
+        .create({
+          full_name: newTeacher.name,
+          emp_id: newTeacher.empId,
+          designation: newTeacher.designation,
+          qualification: newTeacher.qualification
+        })
+        .catch(() => {});
+    }
   };
 
   const handleDeleteTeacher = (id: string) => {
     setTeachers(teachers.filter((t) => t.id !== id));
+    if (backendUser) teachersApi.remove(id).catch(() => {});
   };
 
   const handleAddCourse = (courseData: Partial<Course>) => {
@@ -187,6 +416,21 @@ export default function App() {
       modules: []
     };
     setCourses([...courses, newCourse]);
+    if (backendUser) {
+      lmsApi
+        .createAssignment({
+          title: newCourse.title,
+          course_id: newCourse.id,
+          class_id: '',
+          section_id: '',
+          subject_id: '',
+          teacher_id: backendUser.id,
+          description: newCourse.description,
+          due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
+          total_marks: 100
+        })
+        .catch(() => {});
+    }
   };
 
   const handleAddAssignment = (asgData: Partial<Assignment>) => {
@@ -206,6 +450,20 @@ export default function App() {
       totalStudentsCount: 38
     };
     setAssignments([newAsg, ...assignments]);
+    if (backendUser) {
+      lmsApi
+        .createAssignment({
+          title: newAsg.title,
+          class_id: '',
+          section_id: '',
+          subject_id: '',
+          teacher_id: backendUser.id,
+          description: newAsg.instructions,
+          due_date: newAsg.dueDate,
+          total_marks: newAsg.totalMarks
+        })
+        .catch(() => {});
+    }
   };
 
   const handleAddExam = (examData: Partial<Exam>) => {
@@ -225,21 +483,50 @@ export default function App() {
       status: 'Upcoming'
     };
     setExams([newExam, ...exams]);
+    if (backendUser) {
+      examsApi
+        .create({
+          title: newExam.title,
+          term_id: '',
+          academic_year_id: '',
+          start_date: newExam.date,
+          end_date: newExam.date,
+          status: 'SCHEDULED'
+        })
+        .catch(() => {});
+    }
   };
 
   const handlePayInvoice = (id: string, method: string) => {
+    const invoice = feeInvoices.find((inv) => inv.id === id);
+    const paymentMethodMap: Record<string, FeeInvoice['paymentMethod']> = {
+      'JazzCash': 'JazzCash',
+      'EasyPaisa': 'EasyPaisa',
+      'Bank Transfer': 'Bank Transfer',
+      'Cash Deposit': 'Cash Deposit',
+      'HBL Direct': 'HBL Direct'
+    };
     setFeeInvoices(
       feeInvoices.map((inv) =>
         inv.id === id
           ? {
               ...inv,
               status: 'Paid',
-              paymentMethod: method as any,
+              paymentMethod: paymentMethodMap[method] || 'Cash Deposit',
               paidDate: new Date().toISOString().slice(0, 10)
             }
           : inv
       )
     );
+    if (backendUser && invoice) {
+      feesApi
+        .collectPayment(id, {
+          amount_pkr: invoice.netAmountPKR,
+          payment_method:
+            method === 'JazzCash' ? 'JAZZCASH' : method === 'EasyPaisa' ? 'EASYPAISA' : method === 'Bank Transfer' ? 'BANK_TRANSFER' : 'CASH'
+        })
+        .catch(() => {});
+    }
   };
 
   const handleSendMessage = (msgData: Partial<Message>) => {
@@ -257,6 +544,16 @@ export default function App() {
       unread: false
     };
     setMessages([newMsg, ...messages]);
+    if (backendUser) {
+      communicationApi
+        .sendMessage({
+          recipient_id: newMsg.recipientId === 'all' ? '' : newMsg.recipientId,
+          sender_id: backendUser.id,
+          content: newMsg.text,
+          conversation_id: `conv-${Date.now()}`
+        })
+        .catch(() => {});
+    }
   };
 
   const handlePostAnnouncement = (ancData: Partial<Announcement>) => {
@@ -271,6 +568,25 @@ export default function App() {
       category: ancData.category || 'Academic'
     };
     setAnnouncements([newAnc, ...announcements]);
+    if (backendUser) {
+      const targetRole = newAnc.targetRole;
+      const targetRolesMap: Record<string, string[]> = {
+        All: ['student', 'teacher', 'parent', 'administrator'],
+        Students: ['student'],
+        Parents: ['parent'],
+        Teachers: ['teacher']
+      };
+      communicationApi
+        .createAnnouncement({
+          title: newAnc.title,
+          content: newAnc.content,
+          author_id: backendUser.id,
+          author_name: backendUser.full_name,
+          target_roles: targetRolesMap[targetRole] || ['student', 'teacher', 'parent'],
+          priority: newAnc.priority === 'Urgent' ? 'URGENT' : newAnc.priority === 'High' ? 'HIGH' : 'NORMAL'
+        })
+        .catch(() => {});
+    }
   };
 
   const handleUpdateInstitute = (updatedData: Partial<InstituteInfo>) => {
@@ -283,15 +599,25 @@ export default function App() {
   if (showLandingPage) {
     return (
       <LandingPage
-        onOpenLogin={() => {
-          setShowLandingPage(false);
-          setShowLoginModal(true);
-        }}
+        onOpenAuth={(role, mode) => setAuthView({ role, mode })}
         onQuickDemo={(role) => {
           setCurrentRole(role);
           setActiveTab('dashboard');
           setShowLandingPage(false);
         }}
+        onOpenSuperAdmin={() => navigate('/admin')}
+      />
+    );
+  }
+
+  if (authView) {
+    return (
+      <AuthPage
+        key={`${authView.role}-${authView.mode}`}
+        initialRole={authView.role}
+        initialMode={authView.mode}
+        onBack={() => setAuthView(null)}
+        onLoginSuccess={handleLoginSuccess}
       />
     );
   }
@@ -323,19 +649,20 @@ export default function App() {
       name: school.principalName,
       schoolName: school.name
     });
-    setViewMode('school');
+    navigate('/');
   };
 
   const handleExitImpersonation = () => {
     setActiveImpersonation(null);
-    setViewMode('super-admin');
+    navigate('/admin');
   };
 
-  // If in Super Admin mode, render the Enterprise Super Admin Dashboard
-  if (viewMode === 'super-admin') {
+  // Super Admin lives on its own route/domain (/admin) — fully separated
+  // from the school portal. Map admin.taleemlms.com → /admin at the proxy.
+  if (isSuperAdminRoute) {
     return (
       <SuperAdminDashboard
-        onExitSuperAdmin={() => setViewMode('school')}
+        onExitSuperAdmin={() => navigate('/')}
         onLaunchSchoolPortal={handleLaunchSchoolPortal}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
@@ -368,9 +695,11 @@ export default function App() {
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
         unreadCount={unreadCount}
         onOpenOnboarding={() => setShowOnboardingModal(true)}
-        onOpenLogin={() => setShowLoginModal(true)}
-        onOpenSuperAdmin={() => setViewMode('super-admin')}
+        onOpenLogin={() => setAuthView({ role: currentRole, mode: 'signin' })}
+        onOpenSuperAdmin={() => navigate('/admin')}
         isImpersonating={!!activeImpersonation}
+        isAuthenticated={!!backendUser}
+        onLogout={handleLogout}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -391,7 +720,7 @@ export default function App() {
             <>
               {currentRole === 'student' && (
                 <StudentDashboard
-                  student={sampleStudents[0]}
+                  student={students[0]}
                   courses={courses}
                   assignments={assignments}
                   exams={exams}
@@ -420,6 +749,7 @@ export default function App() {
                   classes={classes}
                   feeInvoices={feeInvoices}
                   announcements={announcements}
+                  instituteName={institute.name}
                   onSelectTab={(tabId) => setActiveTab(tabId)}
                   onOpenAddStudent={() => setActiveTab('students')}
                   onOpenAddTeacher={() => setActiveTab('teachers')}
@@ -535,18 +865,6 @@ export default function App() {
         onClose={() => setIsNotificationsOpen(false)}
         announcements={announcements}
       />
-
-      {showLoginModal && (
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={(role) => {
-            setCurrentRole(role);
-            setActiveTab('dashboard');
-            setShowLoginModal(false);
-          }}
-        />
-      )}
 
       {showOnboardingModal && (
         <OnboardingModal

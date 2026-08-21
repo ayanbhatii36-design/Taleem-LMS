@@ -274,7 +274,7 @@ export const AssessmentModule: React.FC<AssessmentModuleProps> = ({
       {showAddAssignmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setShowAddAssignmentModal(false)} />
-          <form onSubmit={handleCreateAssignment} className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-3">
+          <form onSubmit={handleCreateAssignment} className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-3 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Publish New Assignment</h3>
             <div>
               <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Title</label>
@@ -287,7 +287,7 @@ export const AssessmentModule: React.FC<AssessmentModuleProps> = ({
                 placeholder="e.g. Physics Numerical Worksheet 4"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div>
                 <label className="font-bold text-slate-600 dark:text-slate-300">Subject</label>
                 <input

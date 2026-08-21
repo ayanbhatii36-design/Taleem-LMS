@@ -15,7 +15,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
-import { SupportTicket, TicketStatus, TicketPriority } from '../../types/superAdmin';
+import { SupportTicket, TicketStatus, TicketPriority } from '../types';
 
 interface SupportTicketsViewProps {
   tickets: SupportTicket[];
@@ -39,8 +39,7 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
       const matchesSearch = 
         tkt.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tkt.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tkt.schoolName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tkt.creatorName.toLowerCase().includes(searchQuery.toLowerCase());
+        tkt.schoolName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'All' || tkt.status === statusFilter;
       const matchesPriority = priorityFilter === 'All' || tkt.priority === priorityFilter;
@@ -160,7 +159,7 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
                       {tkt.schoolName}
                     </div>
                     <div className="text-[10px] text-slate-400">
-                      {tkt.creatorName} ({tkt.creatorRole})
+                      {tkt.assignedAgent.name}
                     </div>
                   </td>
 
@@ -239,7 +238,7 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
                   {selectedTicket.subject}
                 </h3>
                 <div className="text-xs text-slate-400 mt-0.5">
-                  From {selectedTicket.creatorName} at {selectedTicket.schoolName}
+                  From {selectedTicket.schoolName}
                 </div>
               </div>
               <button onClick={() => setSelectedTicket(null)} className="p-1 text-slate-400 hover:text-slate-600">
@@ -253,17 +252,17 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
                 <div
                   key={msg.id}
                   className={`p-3.5 rounded-2xl text-xs ${
-                    msg.senderType === 'SuperAdmin'
+                    msg.role === 'Super Admin'
                       ? 'bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-900/60 ml-6'
                       : 'bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mr-6'
                   }`}
                 >
-                  <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white mb-1">
-                    <span>{msg.senderName} ({msg.senderType})</span>
-                    <span className="text-[10px] font-normal text-slate-400">{msg.timestamp}</span>
+                  <div className="flex items-center justify-between gap-2 font-bold text-slate-900 dark:text-white mb-1">
+                    <span className="truncate">{msg.sender} ({msg.role})</span>
+                    <span className="text-[10px] font-normal text-slate-400 shrink-0">{msg.timestamp}</span>
                   </div>
                   <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {msg.content}
+                    {msg.text}
                   </p>
                 </div>
               ))}
@@ -271,9 +270,9 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
 
             {/* Reply Input Form */}
             <form onSubmit={handleSendReply} className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Reply to Institute:</span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Change Status:</span>
                   <select
                     value={selectedTicket.status}
@@ -288,17 +287,17 @@ export const SupportTicketsView: React.FC<SupportTicketsViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
                   placeholder="Type official response or resolution instructions..."
-                  className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                  className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500 min-w-0"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md"
+                  className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shrink-0"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Send Reply</span>

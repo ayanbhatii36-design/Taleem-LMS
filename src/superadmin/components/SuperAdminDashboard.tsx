@@ -29,19 +29,14 @@ import {
   PlatformSettings,
   SchoolStatus,
   TicketStatus
-} from '../../types/superAdmin';
+} from '../types';
 
 import { 
   INITIAL_SUPER_ADMIN, 
-  INITIAL_SCHOOLS, 
-  INITIAL_PLANS, 
-  INITIAL_TRANSACTIONS, 
-  INITIAL_GLOBAL_USERS, 
-  INITIAL_TICKETS, 
-  INITIAL_AUDIT_LOGS, 
-  INITIAL_SYSTEM_SERVICES, 
   INITIAL_SETTINGS 
-} from '../../data/superAdminData';
+} from '../data';
+import { loadSuperAdminBackendData } from '../backend';
+import { institutesApi } from '../../api/services';
 
 interface SuperAdminDashboardProps {
   onExitSuperAdmin: () => void;
@@ -62,15 +57,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Entities State
-  const [schools, setSchools] = useState<SchoolTenant[]>(INITIAL_SCHOOLS);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(INITIAL_PLANS);
-  const [transactions, setTransactions] = useState<PaymentTransaction[]>(INITIAL_TRANSACTIONS);
-  const [users, setUsers] = useState<GlobalUser[]>(INITIAL_GLOBAL_USERS);
-  const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
-  const [systemServices, setSystemServices] = useState<SystemServiceStatus[]>(INITIAL_SYSTEM_SERVICES);
+  // Entities State — all hydrated from the backend API (MongoDB), no mock data
+  const [schools, setSchools] = useState<SchoolTenant[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
+  const [users, setUsers] = useState<GlobalUser[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [systemServices, setSystemServices] = useState<SystemServiceStatus[]>([]);
   const [settings, setSettings] = useState<PlatformSettings>(INITIAL_SETTINGS);
+  const [dataLoading, setDataLoading] = useState(true);
 
   // Modals & UI States
   const [isCmdPaletteOpen, setIsCmdPaletteOpen] = useState(false);
@@ -111,6 +107,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Hydrate all entity state from the backend (MongoDB) on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const data = await loadSuperAdminBackendData();
+      if (cancelled) return;
+      setSchools(data.schools);
+      setUsers(data.users);
+      setAuditLogs(data.auditLogs);
+      setTransactions(data.transactions);
+      setSystemServices(data.systemServices);
+      setDataLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Helper to log audit event
   const addAuditLog = (action: string, target: string, category: AuditLog['category'], severity: AuditLog['severity'], details: string) => {
     const newLog: AuditLog = {
@@ -121,7 +135,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       target,
       category,
       severity,
-      ipAddress: '182.185.142.90',
+      ipAddress: '',
       details
     };
     setAuditLogs(prev => [newLog, ...prev]);
@@ -135,6 +149,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleSchoolCreated = (newSchool: SchoolTenant) => {
     setSchools(prev => [newSchool, ...prev]);
+    // Persist to the real database
+    institutesApi
+      .create({
+        name: newSchool.name,
+        code: newSchool.code,
+        phone: newSchool.phone,
+        email: newSchool.email,
+        address: newSchool.address,
+        city: newSchool.city,
+        province: newSchool.province,
+        currency: 'PKR',
+        is_active: true
+      })
+      .then((created) => {
+        setSchools(prev =>
+          prev.map((s) => (s.id === newSchool.id ? { ...s, id: created.id } : s))
+        );
+      })
+      .catch(() => {});
     addAuditLog(
       'Tenant Provisioned',
       newSchool.name,
@@ -145,7 +178,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const handleToggleSuspendSchool = (schoolId: string, currentStatus: SchoolStatus) => {
-    const nextStatus: SchoolStatus = currentStatus === 'Suspended' ? 'Active' : 'Suspended';
+    const nextStatus: SchoolStatus = currentStatus === 'Suspended' ? 'Active' : currentStatus === 'Active' ? 'Suspended' : currentStatus;
     setSchools(prev => prev.map(s => s.id === schoolId ? { ...s, status: nextStatus } : s));
     const targetSchool = schools.find(s => s.id === schoolId);
     if (targetSchool) {
@@ -245,7 +278,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     );
   };
 
-  const handleSaveSubscription = (schoolId: string, updatedData: any) => {
+  const handleSaveSubscription = (schoolId: string, updatedData: {
+    planId: string;
+    planName: SchoolTenant['planName'];
+    billingCycle: string;
+    monthlyFeePKR: number;
+    annualFeePKR: number;
+    trialEndsAt?: string;
+  }) => {
     setSchools(prev => prev.map(s => {
       if (s.id === schoolId) {
         return {
@@ -288,7 +328,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const handleRetryPayment = (txId: string) => {
-    setTransactions(prev => prev.map(t => t.id === txId ? { ...t, status: 'Paid', date: 'Just now' } : t));
+    setTransactions(prev => prev.map(t => t.id === txId ? { ...t, status: 'Paid', paidAt: new Date().toISOString().slice(0, 10), date: new Date().toISOString().slice(0, 10) } : t));
     const targetTx = transactions.find(t => t.id === txId);
     if (targetTx) {
       addAuditLog(
@@ -336,10 +376,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       if (t.id === ticketId) {
         const newMessage = {
           id: `msg-${Date.now()}`,
-          senderName: INITIAL_SUPER_ADMIN.name,
-          senderType: 'SuperAdmin' as const,
-          content: replyText,
-          timestamp: 'Just now'
+          sender: INITIAL_SUPER_ADMIN.name,
+          role: 'Super Admin' as const,
+          avatar: INITIAL_SUPER_ADMIN.avatar,
+          text: replyText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         return {
           ...t,
@@ -420,6 +461,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* Main Layout Body */}
       <div className="flex-1 flex overflow-hidden">
+        {/* Mobile Sidebar Backdrop */}
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
         <SuperAdminSidebar
           activeSection={activeSection}
@@ -432,12 +481,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           schools={schools}
           supportTickets={tickets}
           transactions={transactions}
+          systemServices={systemServices}
           pendingSchoolsCount={pendingSchoolsCount}
           openTicketsCount={openTicketsCount}
           failedPaymentsCount={failedPaymentsCount}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onOpenAddSchoolModal={() => setIsAddSchoolOpen(true)}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
 
         {/* Main Content Area */}
@@ -450,13 +502,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             onToggleDarkMode={onToggleDarkMode}
             onOpenSettings={() => setActiveSection('settings')}
             onExitSuperAdmin={onExitSuperAdmin}
+            onSwitchToSchoolDemo={onExitSuperAdmin}
             supportTickets={tickets}
             systemServices={systemServices}
+            schools={schools}
+            transactions={transactions}
             onNavigateTab={(sec) => setActiveSection(sec)}
+            onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           />
 
           {/* Dynamic Section View */}
           <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
+            {dataLoading && (
+              <div className="mb-4 px-4 py-3 rounded-2xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-xs font-semibold text-teal-800 dark:text-teal-200 animate-pulse">
+                Loading live data from MongoDB Cloud…
+              </div>
+            )}
             {activeSection === 'overview' && (
               <DashboardOverview
                 schools={schools}
@@ -550,6 +611,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             {activeSection === 'status' && (
               <SystemStatusView
                 systemServices={systemServices}
+                maintenanceMode={settings.maintenanceMode}
+                onToggleMaintenance={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })}
                 onTriggerBackup={handleTriggerBackup}
                 onFlushCache={handleFlushCache}
               />

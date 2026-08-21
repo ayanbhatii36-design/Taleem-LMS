@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../../db/database';
+import { repo } from '../../db/repository';
 import { sendSuccess, sendError } from '../../utils/response';
 import { authenticateJWT, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { enforceTenantIsolation } from '../../middleware/tenant.middleware';
@@ -11,40 +11,41 @@ const router = Router();
 router.use(authenticateJWT, enforceTenantIsolation);
 
 // List Students with pagination, filtering & search
-router.get('/', requirePermission('student.view'), (req: AuthenticatedRequest, res) => {
+router.get('/', requirePermission('student.view'), async (req: AuthenticatedRequest, res) => {
   const { class_id, section_id, status, search, page = '1', limit = '20' } = req.query;
 
-  let filtered = db.students.filter((s) => s.institute_id === req.institute_id && !s.is_deleted);
+  const filter: any = { institute_id: req.institute_id, is_deleted: { $ne: true } };
 
   // Role specific isolation: Student can only view themselves; Parent can only view linked children
   if (req.user?.role === 'student') {
-    filtered = filtered.filter((s) => s.user_id === req.user?.id);
+    filter.user_id = req.user.id;
   } else if (req.user?.role === 'parent') {
-    const parent = db.findParentByUserId(req.user.id);
-    const linkedChildren = parent ? db.getChildrenForParent(parent.id) : [];
-    const childIds = linkedChildren.map((c) => c.id);
-    filtered = filtered.filter((s) => childIds.includes(s.id));
+    const parent = await repo.parents.findOne({ user_id: req.user.id, is_deleted: { $ne: true } });
+    const links = parent ? await repo.parentStudentLinks.find({ parent_id: parent.id }) : [];
+    const childIds = links.map((l) => l.student_id);
+    filter.id = { $in: childIds };
   }
 
   if (class_id) {
-    filtered = filtered.filter((s) => s.class_id === class_id);
+    filter.class_id = class_id;
   }
   if (section_id) {
-    filtered = filtered.filter((s) => s.section_id === section_id);
+    filter.section_id = section_id;
   }
   if (status) {
-    filtered = filtered.filter((s) => s.status === status);
+    filter.status = status;
   }
   if (search) {
-    const q = (search as string).toLowerCase();
-    filtered = filtered.filter(
-      (s) =>
-        s.full_name.toLowerCase().includes(q) ||
-        s.registration_no.toLowerCase().includes(q) ||
-        s.roll_no.toLowerCase().includes(q) ||
-        s.cnic_bform.toLowerCase().includes(q)
-    );
+    const q = (search as string).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.$or = [
+      { full_name: { $regex: q, $options: 'i' } },
+      { registration_no: { $regex: q, $options: 'i' } },
+      { roll_no: { $regex: q, $options: 'i' } },
+      { cnic_bform: { $regex: q, $options: 'i' } }
+    ];
   }
+
+  const filtered = await repo.students.find(filter);
 
   const p = parseInt(page as string, 10);
   const l = parseInt(limit as string, 10);
@@ -52,15 +53,17 @@ router.get('/', requirePermission('student.view'), (req: AuthenticatedRequest, r
   const total_pages = Math.ceil(total / l) || 1;
   const paginated = filtered.slice((p - 1) * l, p * l);
 
-  const populated = paginated.map((s) => {
-    const cls = db.classes.find((c) => c.id === s.class_id);
-    const sec = db.sections.find((sec) => sec.id === s.section_id);
-    return {
-      ...s,
-      className: cls?.name || 'Class 10',
-      sectionName: sec?.name || 'A'
-    };
-  });
+  const populated = await Promise.all(
+    paginated.map(async (s) => {
+      const cls = await repo.classes.findOne({ id: s.class_id });
+      const sec = await repo.sections.findOne({ id: s.section_id });
+      return {
+        ...s,
+        className: cls?.name || 'Class 10',
+        sectionName: sec?.name || 'A'
+      };
+    })
+  );
 
   return sendSuccess(res, populated, 'Students retrieved successfully', 200, undefined, {
     page: p,
@@ -71,8 +74,8 @@ router.get('/', requirePermission('student.view'), (req: AuthenticatedRequest, r
 });
 
 // Get Student By ID with Academic History
-router.get('/:id', requirePermission('student.view'), (req: AuthenticatedRequest, res) => {
-  const student = db.students.find((s) => s.id === req.params.id && s.institute_id === req.institute_id);
+router.get('/:id', requirePermission('student.view'), async (req: AuthenticatedRequest, res) => {
+  const student = await repo.students.findOne({ id: req.params.id, institute_id: req.institute_id });
   if (!student) return sendError(res, 'Student not found', 404);
 
   // Authorization check
@@ -80,9 +83,9 @@ router.get('/:id', requirePermission('student.view'), (req: AuthenticatedRequest
     return sendError(res, 'Unauthorized access to student record', 403, 'FORBIDDEN');
   }
 
-  const attendance = db.attendance.filter((a) => a.student_id === student.id);
-  const grades = db.gradeRecords.filter((g) => g.student_id === student.id);
-  const invoices = db.invoices.filter((inv) => inv.student_id === student.id);
+  const attendance = await repo.attendance.find({ student_id: student.id });
+  const grades = await repo.gradeRecords.find({ student_id: student.id });
+  const invoices = await repo.invoices.find({ student_id: student.id });
 
   const totalAtt = attendance.length;
   const presentCount = attendance.filter((a) => a.status === 'PRESENT').length;
@@ -122,7 +125,7 @@ router.post('/', requirePermission('student.create'), async (req: AuthenticatedR
     return sendError(res, 'Email, full name, class_id, and section_id are required', 400);
   }
 
-  const existingUser = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  const existingUser = await repo.users.findOne({ email: email.toLowerCase() });
   if (existingUser) {
     return sendError(res, 'User with this email already exists', 400);
   }
@@ -146,7 +149,7 @@ router.post('/', requirePermission('student.create'), async (req: AuthenticatedR
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.users.push(newUser);
+  await repo.users.insertOne(newUser);
 
   const studentId = `std-${Date.now()}`;
   const newStudent: StudentEntity = {
@@ -161,7 +164,7 @@ router.post('/', requirePermission('student.create'), async (req: AuthenticatedR
     cnic_bform: cnic_bform || '61101-0000000-1',
     class_id,
     section_id,
-    academic_year_id: academic_year_id || db.academicYears[0]?.id || 'ay-01',
+    academic_year_id: academic_year_id || (await repo.academicYears.findOne({}))?.id || 'ay-01',
     guardian_name: guardian_name || 'Guardian',
     guardian_phone: guardian_phone || '+923000000000',
     guardian_relation: guardian_relation || 'Father',
@@ -171,16 +174,25 @@ router.post('/', requirePermission('student.create'), async (req: AuthenticatedR
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.students.push(newStudent);
+  const createdStudent = await repo.students.insertOne(newStudent);
 
-  db.logAudit(req.institute_id!, req.user!.id, req.user!.full_name, req.user!.role, 'CREATE_STUDENT', 'STUDENT', studentId);
+  await repo.auditLogs.insertOne({
+    institute_id: req.institute_id!,
+    user_id: req.user!.id,
+    user_name: req.user!.full_name,
+    user_role: req.user!.role,
+    action: 'CREATE_STUDENT',
+    target_resource: 'STUDENT',
+    target_id: studentId,
+    ip_address: req.ip
+  });
 
-  return sendSuccess(res, newStudent, 'Student created successfully', 201);
+  return sendSuccess(res, createdStudent, 'Student created successfully', 201);
 });
 
 // Transfer Class / Section
-router.post('/:id/transfer', requirePermission('student.transfer'), (req: AuthenticatedRequest, res) => {
-  const student = db.students.find((s) => s.id === req.params.id && s.institute_id === req.institute_id);
+router.post('/:id/transfer', requirePermission('student.transfer'), async (req: AuthenticatedRequest, res) => {
+  const student = await repo.students.findOne({ id: req.params.id, institute_id: req.institute_id });
   if (!student) return sendError(res, 'Student not found', 404);
 
   const { target_class_id, target_section_id } = req.body;
@@ -188,33 +200,35 @@ router.post('/:id/transfer', requirePermission('student.transfer'), (req: Authen
     return sendError(res, 'target_class_id and target_section_id are required', 400);
   }
 
-  student.class_id = target_class_id;
-  student.section_id = target_section_id;
-  student.updated_at = new Date().toISOString();
-
-  db.logAudit(
-    req.institute_id!,
-    req.user!.id,
-    req.user!.full_name,
-    req.user!.role,
-    'TRANSFER_STUDENT_CLASS',
-    'STUDENT',
-    student.id,
-    req.ip,
-    { target_class_id, target_section_id }
+  const updated = await repo.students.updateOne(
+    { id: student.id },
+    { class_id: target_class_id, section_id: target_section_id }
   );
 
-  return sendSuccess(res, student, 'Student transferred successfully');
+  await repo.auditLogs.insertOne({
+    institute_id: req.institute_id!,
+    user_id: req.user!.id,
+    user_name: req.user!.full_name,
+    user_role: req.user!.role,
+    action: 'TRANSFER_STUDENT_CLASS',
+    target_resource: 'STUDENT',
+    target_id: student.id,
+    ip_address: req.ip,
+    metadata_json: JSON.stringify({ target_class_id, target_section_id })
+  });
+
+  return sendSuccess(res, updated, 'Student transferred successfully');
 });
 
 // Archive / Delete Student
-router.delete('/:id', requirePermission('student.delete'), (req: AuthenticatedRequest, res) => {
-  const student = db.students.find((s) => s.id === req.params.id && s.institute_id === req.institute_id);
+router.delete('/:id', requirePermission('student.delete'), async (req: AuthenticatedRequest, res) => {
+  const student = await repo.students.findOne({ id: req.params.id, institute_id: req.institute_id });
   if (!student) return sendError(res, 'Student not found', 404);
 
-  student.is_deleted = true;
-  student.deleted_at = new Date().toISOString();
-  student.status = 'ARCHIVED';
+  await repo.students.updateOne(
+    { id: student.id },
+    { is_deleted: true, deleted_at: new Date().toISOString(), status: 'ARCHIVED' }
+  );
 
   return sendSuccess(res, null, 'Student record archived');
 });

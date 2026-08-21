@@ -16,7 +16,7 @@ import {
 } from '../types';
 
 export const initialInstitute: InstituteInfo = {
-  name: 'Islamabad Model College & Academy',
+  name: 'ADD YOUR INSTITUTE',
   type: 'College',
   tagline: 'Excellence in Academic Mastery & Character Building',
   logo: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?w=150&auto=format&fit=crop&q=80',
@@ -36,7 +36,7 @@ export const sampleUsers: Record<string, User> = {
     email: 'principal@imca.edu.pk',
     phone: '+92 300 8554321',
     role: 'principal',
-    instituteName: 'Islamabad Model College & Academy',
+    instituteName: 'ADD YOUR INSTITUTE',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
   },
   teacher: {
@@ -45,7 +45,7 @@ export const sampleUsers: Record<string, User> = {
     email: 'farooq.physics@imca.edu.pk',
     phone: '+92 321 5544332',
     role: 'teacher',
-    instituteName: 'Islamabad Model College & Academy',
+    instituteName: 'ADD YOUR INSTITUTE',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'
   },
   student: {
@@ -57,7 +57,7 @@ export const sampleUsers: Record<string, User> = {
     rollNumber: 'IMC-2025-104',
     className: 'Class 10',
     section: 'A (Pre-Engineering)',
-    instituteName: 'Islamabad Model College & Academy',
+    instituteName: 'ADD YOUR INSTITUTE',
     avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80'
   },
   parent: {
@@ -66,7 +66,7 @@ export const sampleUsers: Record<string, User> = {
     email: 'rashid.khan@gmail.com',
     phone: '+92 301 9876543',
     role: 'parent',
-    instituteName: 'Islamabad Model College & Academy',
+    instituteName: 'ADD YOUR INSTITUTE',
     childIds: ['std-1', 'std-2'],
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80'
   }

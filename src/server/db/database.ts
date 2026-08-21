@@ -47,6 +47,7 @@ class RelationalDatabase {
   public examSubjects: ExamSubjectEntity[] = [];
   public gradeRecords: GradeRecordEntity[] = [];
   public timetableSlots: TimetableSlotEntity[] = [];
+  public classSubjectAssignments: any[] = [];
   public feeStructures: FeeStructure[] = [];
   public invoices: InvoiceEntity[] = [];
   public payments: PaymentRecord[] = [];
@@ -54,6 +55,7 @@ class RelationalDatabase {
   public messages: MessageEntity[] = [];
   public notifications: NotificationEntity[] = [];
   public auditLogs: AuditLogEntity[] = [];
+  public fileMetadata: any[] = [];
 
   // Helper filters by tenant
   public findUserByEmail(email: string, instituteId?: string): User | undefined {

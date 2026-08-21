@@ -20,7 +20,7 @@ import {
   TrendingUp,
   FileSpreadsheet
 } from 'lucide-react';
-import { PaymentTransaction, PaymentStatus, PaymentMethod } from '../../types/superAdmin';
+import { PaymentTransaction, PaymentStatus, PaymentMethod } from '../types';
 
 interface BillingPaymentsViewProps {
   transactions: PaymentTransaction[];
@@ -57,6 +57,15 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
     return transactions
       .filter(t => t.status === 'Refunded')
       .reduce((acc, t) => acc + t.netAmountPKR, 0);
+  }, [transactions]);
+
+  const settlementRatePct = useMemo(() => {
+    const total = transactions.reduce((acc, t) => acc + t.netAmountPKR, 0);
+    if (total === 0) return 0;
+    const paid = transactions
+      .filter(t => t.status === 'Paid')
+      .reduce((acc, t) => acc + t.netAmountPKR, 0);
+    return Math.round((paid / total) * 100);
   }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
@@ -145,7 +154,7 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
           </div>
           <div className="mt-2 text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>97.2% Settlement Rate</span>
+            <span>{settlementRatePct}% Settlement Rate</span>
           </div>
         </div>
 
@@ -167,9 +176,6 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
           </div>
           <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white font-mono">
             {transactions.length} Invoices
-          </div>
-          <div className="mt-2 text-[11px] text-teal-600 font-semibold">
-            Auto-Invoicing Active
           </div>
         </div>
 
@@ -357,12 +363,8 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
               </button>
             </div>
 
-            <div className="py-4 space-y-4 text-xs font-medium">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-extrabold text-sm text-teal-900 dark:text-teal-200">TaleemLM SaaS EdTech (Pvt) Ltd</div>
-                  <div className="text-slate-400">NTN: 8849102-1 • Lahore, Pakistan</div>
-                </div>
+            <div className="py-4 space-y-4 text-xs font-medium max-h-[70vh] overflow-y-auto">
+              <div className="flex justify-end">
                 <div className="text-right">
                   <div className="font-bold text-slate-900 dark:text-white">Status: {selectedInvoice.status}</div>
                   <div className="text-slate-400">Issued: {selectedInvoice.date}</div>
@@ -417,7 +419,7 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setRefundTargetTx(null)} />
 
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <RotateCcw className="w-4 h-4 text-red-600" />
               <span>Issue Settlement Refund</span>
@@ -431,7 +433,7 @@ export const BillingPaymentsView: React.FC<BillingPaymentsViewProps> = ({
               <textarea
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
-                placeholder="e.g. Campus downgraded mid-cycle or dual transaction settlement correction"
+                placeholder="Enter the reason for refunding this payment."
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
                 rows={3}
               />

@@ -3,6 +3,7 @@ import path from 'path';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 
+import { connectToMongo, isMongoConnected } from './db/mongo/connection';
 import { seedDatabase } from './db/seed';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/error.middleware';
@@ -24,15 +25,19 @@ import feesRouter from './modules/fees/fees.routes';
 import communicationRouter from './modules/communication/communication.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import auditRouter from './modules/audit/audit.routes';
+import usersRouter from './modules/users/users.routes';
 
 async function bootstrapServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Middleware
   app.use(cors({ origin: '*', credentials: true }));
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+  // Connect to MongoDB Cloud (MONGO_URI) — falls back to in-memory DB if not provided
+  await connectToMongo(process.env.MONGO_URI);
 
   // Initialize DB with seed data
   await seedDatabase();
@@ -45,6 +50,7 @@ async function bootstrapServer() {
         status: 'online',
         system: 'TaleemLMS Backend SaaS Platform',
         version: '1.0.0',
+        database: isMongoConnected ? 'MongoDB Cloud' : 'In-Memory (fallback)',
         uptimeSeconds: Math.floor(process.uptime()),
         timestamp: new Date().toISOString()
       },
@@ -78,6 +84,7 @@ async function bootstrapServer() {
   app.use('/api/v1/communication', communicationRouter);
   app.use('/api/v1/reports', reportsRouter);
   app.use('/api/v1/audit', auditRouter);
+  app.use('/api/v1/users', usersRouter);
 
   // Vite Development / Production Middleware setup
   if (process.env.NODE_ENV !== 'production') {
@@ -91,7 +98,9 @@ async function bootstrapServer() {
     logger.info('Serving Production Built Static Assets from /dist...');
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    // SPA fallback: every non-API path (/, /admin, /admin/…, deep links)
+    // serves index.html so the React router decides which domain to render.
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

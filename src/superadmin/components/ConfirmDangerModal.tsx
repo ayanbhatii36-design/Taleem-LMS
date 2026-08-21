@@ -50,7 +50,7 @@ export const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-red-200 dark:border-red-900/40 p-6 z-10 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-red-200 dark:border-red-900/40 p-6 z-10 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${

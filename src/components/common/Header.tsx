@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Search,
   Bell,
@@ -33,6 +33,8 @@ interface HeaderProps {
   onOpenLogin: () => void;
   onOpenSuperAdmin?: () => void;
   isImpersonating?: boolean;
+  isAuthenticated?: boolean;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,10 +51,33 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenOnboarding,
   onOpenLogin,
   onOpenSuperAdmin,
-  isImpersonating
+  isImpersonating,
+  isAuthenticated,
+  onLogout
 }) => {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
+        setShowRoleDropdown(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showRoleDropdown || showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showRoleDropdown, showProfileMenu]);
 
   const roleLabels: Record<UserRole, { title: string; badge: string; icon: React.ReactNode; color: string }> = {
     principal: { title: 'Principal / Admin Portal', badge: 'Super Admin', icon: <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' },
@@ -127,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {showRoleDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-1.5 z-50">
+              <div ref={roleDropdownRef} className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-1.5 z-50">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700/60">
                   <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                     Role Switcher (Demo Mode)
@@ -219,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-1.5 z-50">
+              <div ref={profileMenuRef} className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-1.5 z-50">
                 <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-700/60">
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{currentUser.name}</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{currentUser.email}</p>
@@ -252,13 +277,17 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                   <button
                     onClick={() => {
-                      onOpenLogin();
+                      if (isAuthenticated && onLogout) {
+                        onLogout();
+                      } else {
+                        onOpenLogin();
+                      }
                       setShowProfileMenu(false);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl font-medium"
                   >
                     <LogOut className="w-4 h-4" />
-                    Sign Out / Switch Account
+                    {isAuthenticated ? 'Sign Out' : 'Sign Out / Switch Account'}
                   </button>
                 </div>
               </div>

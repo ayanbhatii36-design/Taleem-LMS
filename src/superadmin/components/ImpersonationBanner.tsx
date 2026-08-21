@@ -1,6 +1,6 @@
 import React from 'react';
 import { Eye, ArrowRight, ShieldCheck } from 'lucide-react';
-import { SchoolTenant } from '../../types/superAdmin';
+import { SchoolTenant } from '../types';
 
 interface ImpersonationBannerProps {
   impersonatedSchool?: SchoolTenant | null;
@@ -30,11 +30,11 @@ export const ImpersonationBanner: React.FC<ImpersonationBannerProps> = ({
 
   return (
     <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white px-4 py-2 text-xs font-medium shadow-md flex items-center justify-between sticky top-0 z-50 animate-in slide-in-from-top duration-200">
-      <div className="flex items-center gap-2.5 max-w-4xl truncate">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <span className="p-1 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
           <Eye className="w-3.5 h-3.5" />
         </span>
-        <div className="truncate">
+        <div className="break-words min-w-0">
           <span className="font-bold tracking-wide uppercase text-[10px] bg-black/25 px-2 py-0.5 rounded-md mr-2">
             Super Admin Impersonation Mode
           </span>

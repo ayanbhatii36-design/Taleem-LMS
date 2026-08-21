@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Layers,
   BookOpen,
@@ -29,8 +29,12 @@ export const AcademicStructure: React.FC<AcademicStructureProps> = ({
   onAddCourse
 }) => {
   const [activeTab, setActiveTab] = useState<'classes' | 'courses'>('classes');
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(courses[0] || null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [expandedModuleId, setExpandedModuleId] = useState<string>('mod-1');
+
+  useEffect(() => {
+    setSelectedCourse(courses[0] || null);
+  }, [courses]);
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   GraduationCap,
   ShieldCheck,
+  Shield,
   CheckCircle2,
   Users,
   Building2,
@@ -11,16 +12,58 @@ import {
   Award,
   Calendar,
   CreditCard,
-  MessageSquare
+  MessageSquare,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 import { UserRole, InstituteInfo } from '../../types';
 
 interface LandingPageProps {
-  onOpenLogin: (role?: UserRole) => void;
+  onOpenAuth: (role: UserRole, mode: 'signin' | 'signup') => void;
   onQuickDemo: (role: UserRole) => void;
+  onOpenSuperAdmin?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin, onQuickDemo }) => {
+type RoleCard = {
+  role: UserRole;
+  icon: React.ElementType;
+  title: string;
+  accent: string;
+  hoverBorder: string;
+};
+
+const ROLE_CARDS: RoleCard[] = [
+  {
+    role: 'principal',
+    icon: Building2,
+    title: 'Principal Command Center',
+    accent: 'text-teal-400',
+    hoverBorder: 'hover:border-teal-500'
+  },
+  {
+    role: 'teacher',
+    icon: Users,
+    title: 'Teacher Workspace',
+    accent: 'text-blue-400',
+    hoverBorder: 'hover:border-blue-500'
+  },
+  {
+    role: 'student',
+    icon: GraduationCap,
+    title: 'Student Portal',
+    accent: 'text-emerald-400',
+    hoverBorder: 'hover:border-emerald-500'
+  },
+  {
+    role: 'parent',
+    icon: ShieldCheck,
+    title: 'Parent Portal',
+    accent: 'text-amber-400',
+    hoverBorder: 'hover:border-amber-500'
+  }
+];
+
+export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, onQuickDemo, onOpenSuperAdmin }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-teal-500 selection:text-white">
       {/* Background Accent Gradients */}
@@ -39,8 +82,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin, onQuickDe
         </div>
 
         <div className="flex items-center gap-3">
+          {onOpenSuperAdmin && (
+            <a
+              href="/admin"
+              className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-teal-500 text-slate-300 hover:text-white font-semibold text-xs transition-all flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4 text-teal-400" />
+              Super Admin Console
+            </a>
+          )}
           <button
-            onClick={() => onOpenLogin()}
+            onClick={() => onOpenAuth('principal', 'signin')}
             className="px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white font-bold text-xs shadow-lg shadow-teal-700/20 transition-all"
           >
             Sign In to Portal
@@ -66,47 +118,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin, onQuickDe
           Unifying Principals, Educators, Students, and Parents into a single, high-performance ecosystem. Built for FBISE, Cambridge, and Regional Boards.
         </p>
 
-        {/* Quick Demo Launchers */}
-        <div className="pt-6 space-y-3">
+        {/* Role Portal Access */}
+        <div className="pt-6 space-y-4">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-            Select a Role to Experience Live Interactive Dashboard
+            Sign In or Create an Account for Your Portal
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => onQuickDemo('principal')}
-              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-teal-500 text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition-all group"
-            >
-              <Building2 className="w-4 h-4 text-teal-400" />
-              <span>Principal Command Center</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => onQuickDemo('teacher')}
-              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-blue-500 text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition-all group"
-            >
-              <Users className="w-4 h-4 text-blue-400" />
-              <span>Teacher Workspace</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => onQuickDemo('student')}
-              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-emerald-500 text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition-all group"
-            >
-              <GraduationCap className="w-4 h-4 text-emerald-400" />
-              <span>Student Portal</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => onQuickDemo('parent')}
-              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-amber-500 text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition-all group"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Parent Portal</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform text-slate-400" />
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
+            {ROLE_CARDS.map((card) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.role}
+                  className={`p-5 rounded-2xl bg-slate-900 border border-slate-700 ${card.hoverBorder} transition-all group text-left`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-5 h-5 ${card.accent}`} />
+                    <div>
+                      <p className="text-sm font-bold text-white capitalize">{card.role} Portal</p>
+                      <p className="text-[11px] text-slate-400">{card.title}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      onClick={() => onOpenAuth(card.role, 'signin')}
+                      className="flex-1 py-2 rounded-xl bg-teal-700 hover:bg-teal-600 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      Sign In
+                    </button>
+                    <button
+                      onClick={() => onOpenAuth(card.role, 'signup')}
+                      className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Sign Up
+                    </button>
+                    <button
+                      onClick={() => onQuickDemo(card.role)}
+                      title="Open demo interface"
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

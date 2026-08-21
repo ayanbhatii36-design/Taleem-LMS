@@ -192,7 +192,7 @@ export const FeeManagement: React.FC<FeeManagementProps> = ({
       {paymentGatewayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setPaymentGatewayModal(null)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Pay Fee Voucher Online</h3>
             <p className="text-xs text-slate-500">
               Voucher: <span className="font-semibold text-slate-800 dark:text-slate-200">{paymentGatewayModal.invoiceNo}</span> • Amount: <span className="font-extrabold text-teal-700">PKR {paymentGatewayModal.netAmountPKR.toLocaleString()}</span>

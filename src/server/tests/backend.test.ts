@@ -1,4 +1,4 @@
-import { db } from '../db/database';
+import { repo } from '../db/repository';
 import { seedDatabase } from '../db/seed';
 import { hashPassword, comparePassword } from '../utils/password';
 import { ROLE_PERMISSIONS } from '../config/constants';
@@ -23,9 +23,11 @@ export async function runBackendTestSuite() {
 
   // 1. Database Seeding & Multi-tenancy
   await seedDatabase();
-  assert(db.institutes.length > 0, 'Seed Database creates initial institute');
-  assert(db.users.length >= 6, 'Seed Database creates multi-role users');
-  const instId = db.institutes[0].id;
+  const institutes = await repo.institutes.find({});
+  const users = await repo.users.find({});
+  assert(institutes.length > 0, 'Seed Database creates initial institute');
+  assert(users.length >= 6, 'Seed Database creates multi-role users');
+  const instId = institutes[0]?.id;
   assert(instId === 'inst-imcg-001', 'Multi-tenant primary institute exists');
 
   // 2. Authentication & Password Security
@@ -41,14 +43,17 @@ export async function runBackendTestSuite() {
   assert(!studentPerms.includes('attendance.create'), 'Student role is denied attendance.create permission');
 
   // 4. Student & Parent Data Isolation
-  const parentUser = db.users.find((u) => u.role === 'parent');
-  const parent = db.findParentByUserId(parentUser!.id);
-  const children = parent ? db.getChildrenForParent(parent.id) : [];
+  const parentUser = users.find((u) => u.role === 'parent');
+  const parent = await repo.parents.findOne({ user_id: parentUser!.id });
+  const links = parent ? await repo.parentStudentLinks.find({ parent_id: parent.id }) : [];
+  const childIds = links.map((l) => l.student_id);
+  const children = childIds.length > 0 ? await repo.students.find({ id: { $in: childIds } }) : [];
   assert(children.length > 0, 'Parent can access linked children records');
 
   // 5. Timetable Conflict Engine Validation
-  const existingSlot = db.timetableSlots[0];
-  const teacherConflict = db.timetableSlots.find(
+  const slots = await repo.timetableSlots.find({});
+  const existingSlot = slots[0];
+  const teacherConflict = slots.find(
     (s) =>
       s.institute_id === existingSlot.institute_id &&
       s.teacher_id === existingSlot.teacher_id &&
@@ -58,7 +63,8 @@ export async function runBackendTestSuite() {
   assert(!!teacherConflict, 'Timetable conflict detection engine correctly identifies teacher overlaps');
 
   // 6. PKR Fee Invoices & Payment Recording
-  const invoice = db.invoices[0];
+  const invoices = await repo.invoices.find({});
+  const invoice = invoices[0];
   assert(invoice.net_amount_pkr > 0, 'Invoice created with valid PKR net amount');
   assert(invoice.paid_amount_pkr === invoice.net_amount_pkr, 'Fee invoice payment calculation matches net PKR amount');
 
@@ -66,5 +72,5 @@ export async function runBackendTestSuite() {
   console.log(`📊 TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);
   console.log(`==================================================\n`);
 
-  return { passed, failed };
+  return { total: passed + failed, passed, failed };
 }

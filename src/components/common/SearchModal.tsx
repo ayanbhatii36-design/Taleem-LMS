@@ -39,44 +39,44 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const matchingStudents = trimmed
     ? (students || []).filter(
         (s) =>
-          s.name.toLowerCase().includes(trimmed) ||
-          s.rollNo.toLowerCase().includes(trimmed) ||
-          s.className.toLowerCase().includes(trimmed)
+          (s.name || '').toLowerCase().includes(trimmed) ||
+          (s.rollNo || '').toLowerCase().includes(trimmed) ||
+          (s.className || '').toLowerCase().includes(trimmed)
       )
     : [];
 
   const matchingTeachers = trimmed
     ? (teachers || []).filter(
         (t) =>
-          t.name.toLowerCase().includes(trimmed) ||
-          t.subjects.some((sub) => sub.toLowerCase().includes(trimmed)) ||
-          t.department.toLowerCase().includes(trimmed)
+          (t.name || '').toLowerCase().includes(trimmed) ||
+          (t.subjects || []).some((sub) => (sub || '').toLowerCase().includes(trimmed)) ||
+          (t.department || '').toLowerCase().includes(trimmed)
       )
     : [];
 
   const matchingClasses = trimmed
     ? (classes || []).filter(
         (c) =>
-          c.name.toLowerCase().includes(trimmed) ||
-          c.section.toLowerCase().includes(trimmed)
+          (c.name || '').toLowerCase().includes(trimmed) ||
+          (c.section || '').toLowerCase().includes(trimmed)
       )
     : [];
 
   const matchingInvoices = trimmed
     ? (feeInvoices || []).filter(
         (inv) =>
-          inv.studentName.toLowerCase().includes(trimmed) ||
-          inv.invoiceNo.toLowerCase().includes(trimmed) ||
-          inv.month.toLowerCase().includes(trimmed)
+          (inv.studentName || '').toLowerCase().includes(trimmed) ||
+          (inv.invoiceNo || '').toLowerCase().includes(trimmed) ||
+          (inv.month || '').toLowerCase().includes(trimmed)
       )
     : [];
 
   const matchingCourses = trimmed
     ? (courses || []).filter(
         (c) =>
-          c.name.toLowerCase().includes(trimmed) ||
-          c.code.toLowerCase().includes(trimmed) ||
-          c.subject.toLowerCase().includes(trimmed)
+          (c.title || '').toLowerCase().includes(trimmed) ||
+          (c.code || '').toLowerCase().includes(trimmed) ||
+          (c.className || '').toLowerCase().includes(trimmed)
       )
     : [];
 

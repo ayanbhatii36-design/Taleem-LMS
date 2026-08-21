@@ -385,9 +385,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setShowAddModal(false)} />
-          <form onSubmit={handleSaveStudent} className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4">
+          <form onSubmit={handleSaveStudent} className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Add New Student</h3>
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="font-bold text-slate-600 dark:text-slate-300">Full Name</label>
                 <input

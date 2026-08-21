@@ -10,7 +10,7 @@ import {
   HardDrive,
   Download
 } from 'lucide-react';
-import { SchoolTenant, PaymentTransaction } from '../../types/superAdmin';
+import { SchoolTenant, PaymentTransaction } from '../types';
 
 interface PlatformAnalyticsViewProps {
   schools: SchoolTenant[];
@@ -24,6 +24,18 @@ export const PlatformAnalyticsView: React.FC<PlatformAnalyticsViewProps> = ({
   const totalStudents = schools.reduce((acc, s) => acc + s.studentCount, 0);
   const totalTeachers = schools.reduce((acc, s) => acc + s.teacherCount, 0);
   const totalMRR = schools.filter(s => s.status === 'Active').reduce((acc, s) => acc + s.monthlyFeePKR, 0);
+
+  const paidRevenuePKR = transactions
+    .filter(t => t.status === 'Paid')
+    .reduce((acc, t) => acc + t.netAmountPKR, 0);
+
+  const monthlyIntakePct = schools.length === 0
+    ? 0
+    : Math.round((schools.filter(s => s.createdDate.slice(0, 7) === new Date().toISOString().slice(0, 7)).length / schools.length) * 100);
+
+  const teacherStudentRatio = totalTeachers === 0
+    ? '1:0'
+    : `1:${Math.round(totalStudents / totalTeachers)}`;
 
   // Province Breakdown
   const provinceCounts: Record<string, number> = {};
@@ -56,8 +68,8 @@ export const PlatformAnalyticsView: React.FC<PlatformAnalyticsViewProps> = ({
         </div>
       </div>
 
-      {/* Top 4 Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top 5 Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="text-xs font-bold text-slate-400 uppercase">Total Enrolled Students</div>
           <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white font-mono">
@@ -65,7 +77,7 @@ export const PlatformAnalyticsView: React.FC<PlatformAnalyticsViewProps> = ({
           </div>
           <div className="mt-1 text-[11px] text-emerald-600 font-bold flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>+14.8% monthly intake</span>
+            <span>{monthlyIntakePct}% monthly intake</span>
           </div>
         </div>
 
@@ -75,7 +87,7 @@ export const PlatformAnalyticsView: React.FC<PlatformAnalyticsViewProps> = ({
             {totalTeachers.toLocaleString()}
           </div>
           <div className="mt-1 text-[11px] text-teal-600 font-bold">
-            1:15 Teacher-to-Student Ratio
+            {teacherStudentRatio} Teacher-to-Student Ratio
           </div>
         </div>
 
@@ -96,6 +108,17 @@ export const PlatformAnalyticsView: React.FC<PlatformAnalyticsViewProps> = ({
           </div>
           <div className="mt-1 text-[11px] text-slate-400">
             Per month in PKR
+          </div>
+        </div>
+
+        <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+          <div className="text-xs font-bold text-slate-400 uppercase">Revenue Collected (YTD)</div>
+          <div className="mt-2 text-2xl font-black text-teal-700 dark:text-teal-400 font-mono">
+            PKR {(paidRevenuePKR / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}M
+          </div>
+          <div className="mt-1 text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+            <DollarSign className="w-3.5 h-3.5" />
+            From settled transactions
           </div>
         </div>
       </div>

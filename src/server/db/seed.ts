@@ -1,4 +1,4 @@
-import { db } from './database';
+import { repo } from './repository';
 import { hashPassword } from '../utils/password';
 import {
   Institute,
@@ -13,7 +13,6 @@ import {
   SectionEntity,
   SubjectEntity,
   CourseEntity,
-  AttendanceRecord,
   AssignmentEntity,
   ExamEntity,
   ExamSubjectEntity,
@@ -23,12 +22,11 @@ import {
   InvoiceEntity,
   PaymentRecord,
   AnnouncementEntity,
-  MessageEntity,
   NotificationEntity
 } from '../types/backend';
 
 export async function seedDatabase() {
-  if (db.institutes.length > 0) return; // already seeded
+  if (await repo.institutes.isSeeded()) return; // already seeded (mongo or memory)
 
   console.log('[SEED] Initializing database with realistic Pakistani school data...');
 
@@ -38,7 +36,7 @@ export async function seedDatabase() {
   const instituteId = 'inst-imcg-001';
   const institute: Institute = {
     id: instituteId,
-    name: 'Islamabad Model College for Boys F-8/4',
+    name: 'ADD YOUR INSTITUTE',
     code: 'IMCB-F84',
     domain: 'imcb.edu.pk',
     logo_url: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=120&auto=format&fit=crop&q=80',
@@ -54,7 +52,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.institutes.push(institute);
+  await repo.institutes.insertOne(institute);
 
   // 2. Users (Super Admin, Principal, Admin, Teachers, Students, Parents, Accountant)
   const users: User[] = [
@@ -155,7 +153,7 @@ export async function seedDatabase() {
       updated_at: new Date().toISOString()
     }
   ];
-  db.users.push(...users);
+  await repo.users.insertMany(users);
 
   // 3. Academic Years & Terms
   const ay: AcademicYear = {
@@ -168,7 +166,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.academicYears.push(ay);
+  await repo.academicYears.insertOne(ay);
 
   const term1: Term = {
     id: 't-1-2025',
@@ -181,7 +179,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.terms.push(term1);
+  await repo.terms.insertOne(term1);
 
   // 4. Classes & Sections
   const class10: ClassEntity = {
@@ -193,7 +191,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.classes.push(class10);
+  await repo.classes.insertOne(class10);
 
   const secA: SectionEntity = {
     id: 'sec-10a',
@@ -205,7 +203,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.sections.push(secA);
+  await repo.sections.insertOne(secA);
 
   // 5. Subjects
   const subjects: SubjectEntity[] = [
@@ -240,7 +238,7 @@ export async function seedDatabase() {
       updated_at: new Date().toISOString()
     }
   ];
-  db.subjects.push(...subjects);
+  await repo.subjects.insertMany(subjects);
 
   // 6. Teacher
   const teacherObj: TeacherEntity = {
@@ -257,7 +255,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.teachers.push(teacherObj);
+  await repo.teachers.insertOne(teacherObj);
 
   // 7. Student
   const studentObj: StudentEntity = {
@@ -282,7 +280,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.students.push(studentObj);
+  await repo.students.insertOne(studentObj);
 
   // 8. Parent & Link
   const parentObj: ParentEntity = {
@@ -297,7 +295,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.parents.push(parentObj);
+  await repo.parents.insertOne(parentObj);
 
   const link: ParentStudentLink = {
     id: 'psl-01',
@@ -308,7 +306,7 @@ export async function seedDatabase() {
     is_primary_contact: true,
     created_at: new Date().toISOString()
   };
-  db.parentStudentLinks.push(link);
+  await repo.parentStudentLinks.insertOne(link);
 
   // 9. Course
   const courseObj: CourseEntity = {
@@ -324,27 +322,9 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.courses.push(courseObj);
+  await repo.courses.insertOne(courseObj);
 
-  // 10. Attendance Records
-  const dates = ['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05'];
-  dates.forEach((d) => {
-    const att: AttendanceRecord = {
-      id: `att-${d}`,
-      institute_id: instituteId,
-      student_id: studentObj.id,
-      class_id: class10.id,
-      section_id: secA.id,
-      date: d,
-      status: d === '2026-08-03' ? 'ABSENT' : 'PRESENT',
-      marked_by_user_id: 'usr-teacher-1',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    db.attendance.push(att);
-  });
-
-  // 11. Assignment
+  // 10. Assignment
   const asg: AssignmentEntity = {
     id: 'asg-phy-01',
     institute_id: instituteId,
@@ -363,9 +343,9 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.assignments.push(asg);
+  await repo.assignments.insertOne(asg);
 
-  // 12. Exam & Grades
+  // 11. Exam & Grades
   const exam: ExamEntity = {
     id: 'exm-mid-2025',
     institute_id: instituteId,
@@ -378,7 +358,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.exams.push(exam);
+  await repo.exams.insertOne(exam);
 
   const examSub: ExamSubjectEntity = {
     id: 'exm-sub-phy',
@@ -396,7 +376,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.examSubjects.push(examSub);
+  await repo.examSubjects.insertOne(examSub);
 
   const gradeRecord: GradeRecordEntity = {
     id: 'grd-01',
@@ -412,9 +392,9 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.gradeRecords.push(gradeRecord);
+  await repo.gradeRecords.insertOne(gradeRecord);
 
-  // 13. Fee Structures, Invoices & Payments (PKR)
+  // 12. Fee Structures, Invoices & Payments (PKR)
   const feeStructure: FeeStructure = {
     id: 'fs-class10-monthly',
     institute_id: instituteId,
@@ -427,7 +407,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.feeStructures.push(feeStructure);
+  await repo.feeStructures.insertOne(feeStructure);
 
   const invoice: InvoiceEntity = {
     id: 'inv-2026-08-001',
@@ -447,7 +427,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.invoices.push(invoice);
+  await repo.invoices.insertOne(invoice);
 
   const payment: PaymentRecord = {
     id: 'pay-001',
@@ -463,9 +443,9 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.payments.push(payment);
+  await repo.payments.insertOne(payment);
 
-  // 14. Timetable
+  // 13. Timetable
   const slot: TimetableSlotEntity = {
     id: 'slot-1',
     institute_id: instituteId,
@@ -480,9 +460,9 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.timetableSlots.push(slot);
+  await repo.timetableSlots.insertOne(slot);
 
-  // 15. Announcements & Notifications
+  // 14. Announcements & Notifications
   const announcement: AnnouncementEntity = {
     id: 'anc-01',
     institute_id: instituteId,
@@ -495,7 +475,7 @@ export async function seedDatabase() {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  db.announcements.push(announcement);
+  await repo.announcements.insertOne(announcement);
 
   const notification: NotificationEntity = {
     id: 'notif-01',
@@ -507,7 +487,7 @@ export async function seedDatabase() {
     is_read: false,
     created_at: new Date().toISOString()
   };
-  db.notifications.push(notification);
+  await repo.notifications.insertOne(notification);
 
   console.log('[SEED] Database seeded successfully!');
 }

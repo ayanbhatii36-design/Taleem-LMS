@@ -19,7 +19,8 @@ import {
   Send,
   ExternalLink
 } from 'lucide-react';
-import { SchoolTenant, SubscriptionPlan } from '../../types/superAdmin';
+import { SchoolTenant, SubscriptionPlan } from '../types';
+import { INITIAL_PLANS } from '../data';
 
 interface AddSchoolWizardModalProps {
   isOpen: boolean;
@@ -45,12 +46,12 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
     code: '',
     type: 'Private School' as SchoolTenant['type'],
     address: '',
-    city: 'Lahore',
-    province: 'Punjab' as SchoolTenant['province'],
-    phone: '+92 42 ',
+    city: '',
+    province: '' as SchoolTenant['province'],
+    phone: '+92 ',
     email: '',
     website: '',
-    logo: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=120&auto=format&fit=crop&q=80',
+    logo: '',
     // Step 2: Principal
     principalName: '',
     principalEmail: '',
@@ -70,7 +71,12 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
 
   if (!isOpen) return null;
 
-  const selectedPlan = plans.find(p => p.id === formData.planId) || plans[1];
+  const availablePlans = plans.length > 0 ? plans : INITIAL_PLANS;
+  const selectedPlan = availablePlans.find(p => p.id === formData.planId) || availablePlans[1];
+
+  const portalUrl = formData.website
+    ? `https://portal.${formData.website.replace(/^https?:\/\//, '').split('/')[0]}`
+    : '';
 
   const handleNext = () => {
     if (step < 4) {
@@ -83,32 +89,32 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
         name: formData.name || 'New Educational Institute',
         logo: formData.logo,
         type: formData.type,
-        address: formData.address || 'Main Campus Boulevard',
+        address: formData.address,
         city: formData.city,
         province: formData.province,
         phone: formData.phone,
         email: formData.email || `admin@${formData.name.toLowerCase().replace(/[^a-z]/g, '')}.edu.pk`,
         website: formData.website || `https://${formData.name.toLowerCase().replace(/[^a-z]/g, '')}.edu.pk`,
-        principalName: formData.principalName || 'Prof. Administrator',
+        principalName: formData.principalName,
         principalEmail: formData.principalEmail || `principal@${formData.name.toLowerCase().replace(/[^a-z]/g, '')}.edu.pk`,
         principalPhone: formData.principalPhone,
         planId: selectedPlan.id,
         planName: selectedPlan.name as any,
         billingCycle: formData.billingCycle,
         status: 'Active',
-        studentCount: 120,
+        studentCount: 0,
         maxStudents: selectedPlan.maxStudents,
-        teacherCount: 12,
+        teacherCount: 0,
         maxTeachers: selectedPlan.maxTeachers,
-        staffCount: 5,
-        parentCount: 110,
-        coursesCount: 15,
+        staffCount: 0,
+        parentCount: 0,
+        coursesCount: 0,
         maxCourses: selectedPlan.maxCourses,
-        storageUsedGB: 5.0,
+        storageUsedGB: 0,
         storageLimitGB: selectedPlan.storageGB,
         monthlyFeePKR: selectedPlan.monthlyPricePKR,
         annualFeePKR: selectedPlan.annualPricePKR,
-        nextBillingDate: '2027-08-14',
+        nextBillingDate: new Date(Date.now() + (formData.billingCycle === 'annual' ? 365 : 30) * 86400000).toISOString().split('T')[0],
         createdDate: new Date().toISOString().split('T')[0],
         lastActive: 'Just now',
         academicSystem: formData.academicSystem,
@@ -123,7 +129,7 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
   };
 
   const handleCopyCredentials = () => {
-    const creds = `TaleemLM School Portal Access:\nSchool: ${formData.name}\nPortal URL: https://portal.taleemlms.com.pk\nPrincipal Email: ${formData.principalEmail}\nTemporary Password: ${formData.initialPassword}`;
+    const creds = `TaleemLM School Portal Access:\nSchool: ${formData.name}\nPortal URL: ${portalUrl}\nPrincipal Email: ${formData.principalEmail}\nTemporary Password: ${formData.initialPassword}`;
     navigator.clipboard.writeText(creds);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 3000);
@@ -264,6 +270,7 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
                     onChange={(e) => setFormData({ ...formData, province: e.target.value as any })}
                     className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:outline-none cursor-pointer"
                   >
+                    <option value="" disabled>Select Province / Region</option>
                     <option value="Punjab">Punjab</option>
                     <option value="Sindh">Sindh</option>
                     <option value="Islamabad Capital Territory">Islamabad (ICT)</option>
@@ -361,7 +368,7 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {plans.map((plan) => {
+                {availablePlans.map((plan) => {
                   const isSelected = formData.planId === plan.id;
                   return (
                     <div
@@ -392,7 +399,7 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
                 })}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Billing Cycle
@@ -496,11 +503,11 @@ export const AddSchoolWizardModal: React.FC<AddSchoolWizardModalProps> = ({
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-left space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Portal Login URL:</span>
-                  <span className="font-mono text-teal-600 dark:text-teal-400 font-bold">https://portal.taleemlms.com.pk</span>
+                  <span className="font-mono text-teal-600 dark:text-teal-400 font-bold">{portalUrl || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Principal Login ID:</span>
-                  <span className="font-mono text-slate-900 dark:text-white font-bold">{formData.principalEmail || 'principal@school.edu.pk'}</span>
+                  <span className="font-mono text-slate-900 dark:text-white font-bold">{formData.principalEmail || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Temporary Password:</span>

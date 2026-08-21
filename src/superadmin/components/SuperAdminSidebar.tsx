@@ -10,7 +10,6 @@ import {
   Bell, 
   Activity, 
   ShieldCheck, 
-  UserCheck, 
   Settings, 
   ChevronLeft, 
   ChevronRight, 
@@ -23,9 +22,10 @@ import {
   Clock,
   AlertTriangle,
   Flame,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
-import { SchoolTenant, SupportTicket, PaymentTransaction } from '../../types/superAdmin';
+import { SchoolTenant, SupportTicket, PaymentTransaction, SystemServiceStatus } from '../types';
 
 export type SuperAdminNavTab = 
   | 'overview'
@@ -55,10 +55,13 @@ interface SuperAdminSidebarProps {
   schools?: SchoolTenant[];
   supportTickets?: SupportTicket[];
   transactions?: PaymentTransaction[];
+  systemServices?: SystemServiceStatus[];
   pendingSchoolsCount?: number;
   openTicketsCount?: number;
   failedPaymentsCount?: number;
   onOpenAddSchoolModal?: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
@@ -71,17 +74,15 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   schools = [],
   supportTickets = [],
   transactions = [],
+  systemServices = [],
   pendingSchoolsCount: propPendingSchools,
   openTicketsCount: propOpenTickets,
   failedPaymentsCount: propFailedPayments,
-  onOpenAddSchoolModal = () => {}
+  onOpenAddSchoolModal = () => {},
+  isMobileOpen = false,
+  onMobileClose = () => {}
 }) => {
   const currentTab = activeSection || activeTab || 'overview';
-  const handleSelect = (tab: string) => {
-    if (onSelectSection) onSelectSection(tab);
-    else if (onSelectTab) onSelectTab(tab);
-  };
-
   const pendingSchoolsCount = propPendingSchools !== undefined 
     ? propPendingSchools 
     : schools.filter(s => s.status === 'Pending').length;
@@ -97,6 +98,25 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   const failedTxCount = propFailedPayments !== undefined 
     ? propFailedPayments 
     : transactions.filter(tx => tx.status === 'Failed').length;
+
+  // Data-driven metrics (no hard-coded stats)
+  const activeSchools = schools.filter(s => s.status !== 'Suspended' && s.status !== 'Cancelled' && s.status !== 'Expired');
+  const monthlyMRR = activeSchools.reduce((sum, s) => sum + (s.monthlyFeePKR || 0), 0);
+  const avgUptime = systemServices.length > 0
+    ? systemServices.reduce((sum, s) => sum + (s.uptimePct || 0), 0) / systemServices.length
+    : 100;
+  const now = new Date();
+  const recentSchools = schools.filter(s => {
+    const d = new Date(s.createdDate);
+    return !isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const growthPct = schools.length > 0 ? Math.round((recentSchools.length / schools.length) * 100) : 0;
+
+  const handleSelect = (tab: string) => {
+    if (onSelectSection) onSelectSection(tab);
+    else if (onSelectTab) onSelectTab(tab);
+    onMobileClose();
+  };
 
   const navSections = [
     {
@@ -151,14 +171,8 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
           id: 'analytics' as SuperAdminNavTab,
           label: 'Platform Growth & MRR',
           icon: TrendingUp,
-          badge: '+14%',
+          badge: `+${growthPct}%`,
           badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-        },
-        {
-          id: 'announcements' as SuperAdminNavTab,
-          label: 'Global Broadcasts',
-          icon: Bell,
-          badge: null
         }
       ]
     },
@@ -169,19 +183,13 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
           id: 'system-health' as SuperAdminNavTab,
           label: 'Infrastructure Health',
           icon: Activity,
-          badge: '99.98%',
+          badge: `${avgUptime.toFixed(2)}%`,
           badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
         },
         {
           id: 'audit-logs' as SuperAdminNavTab,
           label: 'Security & Audit Trail',
           icon: ShieldCheck,
-          badge: null
-        },
-        {
-          id: 'team' as SuperAdminNavTab,
-          label: 'Super Admin Team',
-          icon: UserCheck,
           badge: null
         },
         {
@@ -196,10 +204,19 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
   return (
     <aside 
-      className={`relative h-[calc(100vh-4rem)] bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 transition-all duration-300 flex flex-col justify-between shrink-0 z-30 ${
-        isCollapsed ? 'w-20' : 'w-64 lg:w-72'
-      }`}
+      className={`fixed lg:static inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 transition-all duration-300 flex flex-col justify-between shrink-0 w-64 ${
+        isCollapsed ? 'lg:w-20' : 'lg:w-72'
+      } ${isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} lg:translate-x-0 lg:shadow-none`}
     >
+      {/* Mobile Close Button */}
+      <button
+        onClick={onMobileClose}
+        className="lg:hidden absolute top-3 right-3 p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10 cursor-pointer"
+        title="Close navigation"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
       {/* Top Action / New School CTA */}
       <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/80">
         {isCollapsed ? (
@@ -312,9 +329,9 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
               </span>
               <span className="text-[10px] font-mono text-teal-700 dark:text-teal-300">PKR Mode</span>
             </div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-              Active MRR: <span className="font-bold text-slate-900 dark:text-white">PKR 8.45M</span> • 12 Campuses
-            </p>
+<p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+            Active MRR: <span className="font-bold text-slate-900 dark:text-white">PKR {(monthlyMRR / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}M</span> • {schools.length} Campus{schools.length === 1 ? '' : 'es'}
+          </p>
           </div>
         )}
 

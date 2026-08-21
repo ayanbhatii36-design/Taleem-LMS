@@ -32,7 +32,7 @@ import {
   SystemServiceStatus, 
   GlobalAnnouncement,
   SubscriptionPlan 
-} from '../../types/superAdmin';
+} from '../types';
 
 interface DashboardOverviewProps {
   schools?: SchoolTenant[];
@@ -97,14 +97,53 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
   const urgentTickets = tickets.filter(t => (t.priority === 'Urgent' || t.priority === 'High') && t.status !== 'Resolved');
 
-  // Province Breakdown
-  const provinceStats = [
-    { province: 'Punjab', count: schools.filter(s => s.province === 'Punjab').length, mrr: 4500000, color: 'bg-emerald-500' },
-    { province: 'Sindh', count: schools.filter(s => s.province === 'Sindh').length, mrr: 1950000, color: 'bg-teal-500' },
-    { province: 'ICT (Islamabad)', count: schools.filter(s => s.province === 'Islamabad Capital Territory').length, mrr: 1200000, color: 'bg-blue-500' },
-    { province: 'Khyber Pakhtunkhwa', count: schools.filter(s => s.province === 'Khyber Pakhtunkhwa').length, mrr: 950000, color: 'bg-indigo-500' },
-    { province: 'Balochistan', count: schools.filter(s => s.province === 'Balochistan').length, mrr: 185000, color: 'bg-amber-500' }
-  ];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const parseDate = (dateStr: string) => {
+    const normalized = dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr;
+    return new Date(normalized);
+  };
+
+  // Schools onboarded in the current calendar month
+  const schoolsThisMonth = schools.filter(s => {
+    const d = parseDate(s.createdDate);
+    return !isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+
+  // Percentage of all schools created this calendar year vs total
+  const schoolsThisYear = schools.filter(s => {
+    const d = parseDate(s.createdDate);
+    return !isNaN(d.getTime()) && d.getFullYear() === currentYear;
+  }).length;
+  const yoyGrowthPct = totalSchools > 0 ? Math.round((schoolsThisYear / totalSchools) * 100) : 0;
+
+  // Collection rate: Paid amounts vs all invoiced amounts
+  const collectedPKR = transactions.filter(tx => tx.status === 'Paid').reduce((acc, tx) => acc + tx.netAmountPKR, 0);
+  const invoicedPKR = transactions.reduce((acc, tx) => acc + tx.netAmountPKR, 0);
+  const collectionRatePct = invoicedPKR > 0 ? Math.round((collectedPKR / invoicedPKR) * 100) : 0;
+
+  // Average platform uptime from system services
+  const avgUptimePct = systemServices.length > 0
+    ? (systemServices.reduce((acc, s) => acc + s.uptimePct, 0) / systemServices.length).toFixed(2)
+    : '100';
+
+  // Unique provinces with active (non-churned) schools
+  const activeProvincesCount = new Set(schools.map(s => s.province)).size;
+
+  // Province Breakdown (derived: per-province MRR from fee-paying schools)
+  const provinceColors = ['bg-emerald-500', 'bg-teal-500', 'bg-blue-500', 'bg-indigo-500', 'bg-amber-500'];
+  const payingSchools = schools.filter(s => !['Suspended', 'Cancelled', 'Expired'].includes(s.status));
+  const revenueProvinces = Array.from(new Set(payingSchools.map(s => s.province)));
+  const provinceStats = revenueProvinces.map((province, idx) => {
+    const provSchools = payingSchools.filter(s => s.province === province);
+    return {
+      province,
+      count: provSchools.length,
+      mrr: provSchools.reduce((acc, s) => acc + s.monthlyFeePKR, 0),
+      color: provinceColors[idx % provinceColors.length]
+    };
+  });
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in-50 duration-200">
@@ -135,7 +174,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
 
           <button
-            onClick={() => onNavigateTab('revenue')}
+            onClick={() => onNavigateTab('billing')}
             className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <Download className="w-4 h-4 text-slate-500" />
@@ -170,7 +209,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </span>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              +2 this month
+              +{schoolsThisMonth} this month
             </span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
@@ -204,7 +243,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </span>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              +18.4% YoY
+              +{yoyGrowthPct}% YoY
             </span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
@@ -232,16 +271,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <span className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
               PKR {(monthlyRecurringRevenuePKR / 1000000).toFixed(2)}M
             </span>
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              +14.2%
-            </span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             <span>
               ARR: <strong className="text-slate-900 dark:text-white font-bold font-mono">PKR {(annualRunRatePKR / 1000000).toFixed(1)}M</strong>
             </span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">97.2% Collected</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{collectionRatePct}% Collected</span>
           </div>
         </div>
 
@@ -269,11 +304,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 All normal
               </span>
             )}
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-            <span>Avg Reply: <strong className="text-slate-900 dark:text-white font-bold">14 mins</strong></span>
-            <span>•</span>
-            <span className="text-purple-600 dark:text-purple-400 font-semibold">CSAT 4.9/5</span>
           </div>
         </div>
       </div>
@@ -382,7 +412,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </p>
               </div>
               <span className="text-[11px] font-bold text-slate-500">
-                5 Provinces Active
+                {activeProvincesCount} Provinces Active
               </span>
             </div>
 
@@ -393,7 +423,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <span className="text-xs font-bold text-slate-900 dark:text-white">
                       {item.province}
                     </span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
+                    <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
                   </div>
                   <div className="mt-2 flex items-baseline justify-between">
                     <span className="text-lg font-black text-slate-900 dark:text-white">
@@ -425,7 +455,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Live Platform Health</h3>
               </div>
               <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                99.98% SLA
+                {avgUptimePct}% SLA
               </span>
             </div>
 

@@ -8,23 +8,8 @@ import {
   AlertTriangle,
   PlusCircle,
   Bell,
-  BarChart3,
-  Award,
-  ChevronRight,
-  ShieldCheck,
-  DollarSign
+  ShieldCheck
 } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
 import { Student, Teacher, ClassItem, FeeInvoice, Announcement } from '../../types';
 
 interface PrincipalDashboardProps {
@@ -33,29 +18,12 @@ interface PrincipalDashboardProps {
   classes: ClassItem[];
   feeInvoices: FeeInvoice[];
   announcements: Announcement[];
+  instituteName?: string;
   onSelectTab: (tabId: string) => void;
   onOpenAddStudent: () => void;
   onOpenAddTeacher: () => void;
   onOpenAddAnnouncement: () => void;
 }
-
-const attendanceData = [
-  { month: 'Mar', pct: 91 },
-  { month: 'Apr', pct: 93 },
-  { month: 'May', pct: 88 },
-  { month: 'Jun', pct: 95 },
-  { month: 'Jul', pct: 92 },
-  { month: 'Aug', pct: 94 }
-];
-
-const feeCollectionData = [
-  { month: 'Mar', collected: 1.2, pending: 0.2 },
-  { month: 'Apr', collected: 1.5, pending: 0.1 },
-  { month: 'May', collected: 1.4, pending: 0.3 },
-  { month: 'Jun', collected: 1.8, pending: 0.2 },
-  { month: 'Jul', collected: 1.6, pending: 0.15 },
-  { month: 'Aug', collected: 1.9, pending: 0.25 }
-];
 
 export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
   students,
@@ -63,6 +31,7 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
   classes,
   feeInvoices,
   announcements,
+  instituteName = 'ADD YOUR INSTITUTE',
   onSelectTab,
   onOpenAddStudent,
   onOpenAddTeacher,
@@ -72,6 +41,13 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
   const totalStudents = students.length;
   const totalTeachers = teachers.length;
   const totalFeesPKR = feeInvoices.reduce((acc, inv) => acc + inv.netAmountPKR, 0);
+  const pendingFeesPKR = feeInvoices
+    .filter((inv) => inv.status !== 'Paid')
+    .reduce((acc, inv) => acc + inv.netAmountPKR, 0);
+  const avgAttendancePct = totalStudents > 0
+    ? Math.round(students.reduce((acc, s) => acc + s.attendancePct, 0) / totalStudents)
+    : 0;
+  const presentToday = Math.round((avgAttendancePct / 100) * totalStudents);
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -83,7 +59,7 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
             <span>Institute Executive Command Center</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-            Islamabad Model College & Academy
+            {instituteName}
           </h1>
           <p className="text-xs md:text-sm text-teal-100/80 mt-1">
             Real-time administrative overview of campus performance, faculty, enrollment, and PKR financial analytics.
@@ -123,10 +99,10 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Enrolled Students</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              1,248
+              {totalStudents.toLocaleString()}
             </h3>
             <p className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> +12% this term
+              <TrendingUp className="w-3 h-3" /> {classes.length} classes on record
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
@@ -139,10 +115,10 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Faculty & Staff</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              64 Teachers
+              {totalTeachers}
             </h3>
             <p className="text-[11px] text-teal-600 font-medium mt-1">
-              96% Staff Attendance Today
+              Teachers on faculty
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold">
@@ -153,12 +129,12 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
         {/* Metric 3 */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Today's Attendance</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Average Attendance</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              93.8%
+              {avgAttendancePct}%
             </h3>
             <p className="text-[11px] text-emerald-600 font-medium mt-1">
-              1,170 Present
+              {presentToday} of {totalStudents} students present
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
@@ -169,80 +145,16 @@ export const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({
         {/* Metric 4 */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Aug Fee Collections</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Fee Collections</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              PKR 1.9 M
+              PKR {(totalFeesPKR / 1000000).toFixed(2)} M
             </h3>
             <p className="text-[11px] text-amber-600 font-medium mt-1">
-              PKR 250k Pending
+              PKR {(pendingFeesPKR / 1000).toFixed(0)}k pending
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
             <CreditCard className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Attendance Trends */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Campus Attendance Trends (%)</h3>
-              <p className="text-xs text-slate-500">6-Month attendance history</p>
-            </div>
-            <button
-              onClick={() => onSelectTab('attendance')}
-              className="text-xs font-bold text-teal-700 dark:text-teal-300 hover:underline"
-            >
-              Details
-            </button>
-          </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={attendanceData}>
-                <defs>
-                  <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0f766e" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#0f766e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.15} />
-                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
-                <YAxis domain={[70, 100]} stroke="#94a3b8" fontSize={11} />
-                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-                <Area type="monotone" dataKey="pct" stroke="#0f766e" strokeWidth={3} fillOpacity={1} fill="url(#attGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Fee Collection Bar Chart */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Monthly Fee Collections (PKR Millions)</h3>
-              <p className="text-xs text-slate-500">Collected vs Outstanding</p>
-            </div>
-            <button
-              onClick={() => onSelectTab('fees')}
-              className="text-xs font-bold text-teal-700 dark:text-teal-300 hover:underline"
-            >
-              View Invoices
-            </button>
-          </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={feeCollectionData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.15} />
-                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-                <Bar dataKey="collected" fill="#0f766e" name="Collected (M)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="pending" fill="#f43f5e" name="Pending (M)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </div>
       </div>

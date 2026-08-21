@@ -26,7 +26,7 @@ import {
   ArrowUpDown,
   FileSpreadsheet
 } from 'lucide-react';
-import { SchoolTenant, SchoolStatus } from '../../types/superAdmin';
+import { SchoolTenant, SchoolStatus } from '../types';
 
 interface SchoolsManagementViewProps {
   schools: SchoolTenant[];
@@ -65,6 +65,19 @@ export const SchoolsManagementView: React.FC<SchoolsManagementViewProps> = ({
       Suspended: schools.filter(s => s.status === 'Suspended').length,
       Expired: schools.filter(s => s.status === 'Expired').length
     };
+  }, [schools]);
+
+  // Derived Filter Options (from schools prop)
+  const statusOptions = useMemo(() => {
+    return ['All', ...Array.from(new Set(schools.map(s => s.status)))];
+  }, [schools]);
+
+  const planOptions = useMemo(() => {
+    return Array.from(new Set(schools.map(s => s.planName)));
+  }, [schools]);
+
+  const provinceOptions = useMemo(() => {
+    return Array.from(new Set(schools.map(s => s.province)));
   }, [schools]);
 
   // Filtered & Sorted Schools
@@ -159,7 +172,7 @@ export const SchoolsManagementView: React.FC<SchoolsManagementViewProps> = ({
 
       {/* Status Segmented Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {(['All', 'Active', 'Trial', 'Pending', 'Suspended'] as const).map((st) => {
+        {statusOptions.map((st) => {
           const count = statusCounts[st as keyof typeof statusCounts] || 0;
           const isActive = statusFilter === st;
 
@@ -209,10 +222,9 @@ export const SchoolsManagementView: React.FC<SchoolsManagementViewProps> = ({
               className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
             >
               <option value="All">All Plans</option>
-              <option value="Starter">Starter</option>
-              <option value="Professional">Professional</option>
-              <option value="Enterprise">Enterprise</option>
-              <option value="Custom Campus">Custom Campus</option>
+              {planOptions.map(plan => (
+                <option key={plan} value={plan}>{plan}</option>
+              ))}
             </select>
           </div>
 
@@ -225,11 +237,9 @@ export const SchoolsManagementView: React.FC<SchoolsManagementViewProps> = ({
               className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
             >
               <option value="All">All Provinces</option>
-              <option value="Punjab">Punjab</option>
-              <option value="Sindh">Sindh</option>
-              <option value="Islamabad Capital Territory">Islamabad (ICT)</option>
-              <option value="Khyber Pakhtunkhwa">KPK</option>
-              <option value="Balochistan">Balochistan</option>
+              {provinceOptions.map(province => (
+                <option key={province} value={province}>{province}</option>
+              ))}
             </select>
           </div>
 
